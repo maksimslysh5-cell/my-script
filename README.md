@@ -1,4 +1,4 @@
---[[\
+--[[
     Project Nova - Blue Lock: Rivals (Ball Trajectory Script)
     Created for Delta Executor
 ]]--
@@ -130,7 +130,7 @@ local TabCorner = Instance.new("UICorner")
 TabCorner.CornerRadius = UDim.new(0, 6)
 TabCorner.Parent = TabButton
 
--- Правая большая вкладка (~75%)
+-- Правая большая вкладка
 local RightContent = Instance.new("Frame")
 RightContent.Parent = MainFrame
 RightContent.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
@@ -164,7 +164,7 @@ local CheckboxCorner = Instance.new("UICorner")
 CheckboxCorner.CornerRadius = UDim.new(0, 4)
 CheckboxCorner.Parent = Checkbox
 
--- Анимация зажатия левой кнопки
+-- Анимация зажатия кнопки вкладки
 TabButton.MouseButton1Down:Connect(function()
     TabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     TabButton.Size = UDim2.new(0, 103, 0, 34)
@@ -189,8 +189,67 @@ Checkbox.MouseButton1Click:Connect(function()
     end
 end)
 
--- Логика визуализации траектории мяча
+-- Функция поиска мяча в игре
+local function findBall()
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("BasePart") and (obj.Name == "Ball" or obj.Name == "Football" or string.lower(obj.Name):find("ball")) then
+            return obj
+        elseif obj:IsA("Folder") or obj:IsA("Model") then
+            local found = obj:FindFirstChild("Ball") or obj:FindFirstChild("Football")
+            if found and found:IsA("BasePart") then
+                return found
+            end
+        end
+    end
+    return nil
+end
+
+-- Создание точек для визуализации траектории
+local trajectoryFolder = Instance.new("Folder")
+trajectoryFolder.Name = "TrajectoryVisuals"
+trajectoryFolder.Parent = Workspace
+
+local maxPoints = 20
+local visualDots = {}
+
+for i = 1, maxPoints do
+    local dot = Instance.new("Part")
+    dot.Size = Vector3.new(0.4, 0.4, 0.4)
+    dot.Shape = Enum.PartType.Ball
+    dot.Material = Enum.Material.Neon
+    dot.Color = Color3.fromRGB(168, 85, 247)
+    dot.Anchored = true
+    dot.CanCollide = false
+    dot.Transparency = 1
+    dot.Parent = trajectoryFolder
+    table.index = table.insert(visualDots, dot)
+end
+
+-- Отрисовка траектории полета мяча
 RunService.RenderStepped:Connect(function()
-    if not trajectoryEnabled then return end
-    -- Основной функционал расчета траектории и отображения метром
+    if not trajectoryEnabled then
+        for _, dot in ipairs(visualDots) do
+            dot.Transparency = 1
+        end
+        return
+    end
+
+    local ball = findBall()
+    if ball and ball:IsA("BasePart") then
+        local pos = ball.Position
+        local velocity = ball.AssemblyLinearVelocity
+        local gravity = Vector3.new(0, -Workspace.Gravity, 0)
+        
+        for i, dot in ipairs(visualDots) do
+            local t = i * 0.08
+            local predictedPos = pos + (velocity * t) + (0.5 * gravity * t^2)
+            
+            dot.Position = predictedPos
+            dot.Transparency = 0
+        end
+    else
+        for _, dot in ipairs(visualDots) do
+            dot.Transparency = 1
+        end
+    end
 end)
