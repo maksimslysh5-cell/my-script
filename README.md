@@ -1,4 +1,4 @@
---[[ Project Solar | Blue Lock: Rivals - Ball Trajectory + Distance | Delta-compatible ]]
+--[[ Blue Lock: Rivals | Ball Trajectory + Distance | Delta-compatible ]]
 local env = (getgenv and getgenv()) or _G
 if type(env.__BLR_TRAJ) == "table" and type(env.__BLR_TRAJ.Unload) == "function" then
 	pcall(env.__BLR_TRAJ.Unload)
@@ -28,11 +28,11 @@ local COLORS = {
 	{"White", Color3.fromRGB(255, 255, 255)},
 }
 local C = {
-	bg = Color3.fromRGB(58, 36, 108), side = Color3.fromRGB(52, 31, 100), bar = Color3.fromRGB(104, 68, 182),
-	element = Color3.fromRGB(98, 68, 164), elementHover = Color3.fromRGB(122, 88, 194),
-	accent = Color3.fromRGB(150, 98, 250), accent2 = Color3.fromRGB(232, 215, 255),
-	off = Color3.fromRGB(134, 112, 186), text = Color3.fromRGB(255, 255, 255),
-	sub = Color3.fromRGB(226, 214, 252), danger = Color3.fromRGB(220, 76, 130),
+	bg = Color3.fromRGB(24, 15, 42), element = Color3.fromRGB(46, 31, 78),
+	elementHover = Color3.fromRGB(62, 42, 100), accent = Color3.fromRGB(139, 92, 246),
+	accent2 = Color3.fromRGB(196, 168, 255), off = Color3.fromRGB(78, 62, 112),
+	text = Color3.fromRGB(240, 235, 255), sub = Color3.fromRGB(165, 152, 200),
+	danger = Color3.fromRGB(190, 60, 110),
 }
 local KICK_DELTA, MAX_SEG = 18, 56
 
@@ -494,7 +494,7 @@ local function guiParent()
 end
 
 local gui = new("ScreenGui", {
-	Name = "ProjectSolar", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Name = "BLRTraj", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	IgnoreGuiInset = true, DisplayOrder = 999,
 }, guiParent())
 
@@ -502,9 +502,6 @@ local order = 0
 local function nextOrder() order += 1 return order end
 local function isPress(i)
 	return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
-end
-local function isMove(i)
-	return i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch
 end
 
 local function makeDraggable(handle, target, onTap)
@@ -524,7 +521,7 @@ local function makeDraggable(handle, target, onTap)
 		end
 	end)
 	bind(UserInputService.InputChanged, function(input)
-		if dragging and isMove(input) then
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta = input.Position - startInput
 			if delta.Magnitude > 5 then moved = true end
 			if moved then
@@ -540,78 +537,40 @@ local function hoverFx(btn, sc, base, hover)
 		tween(btn, 0.12, {BackgroundColor3 = base})
 		tween(sc, 0.1, {Scale = 1})
 	end)
-	bind(btn.InputBegan, function(i) if isPress(i) then tween(sc, 0.07, {Scale = 0.96}) end end)
+	bind(btn.InputBegan, function(i) if isPress(i) then tween(sc, 0.07, {Scale = 0.95}) end end)
 	bind(btn.InputEnded, function(i) if isPress(i) then tween(sc, 0.14, {Scale = 1}, Enum.EasingStyle.Back) end end)
 end
 
----------------------------------------------------------------- window (desktop style)
-local WIN_W, WIN_H, SIDE_W, BAR_H = 560, 330, 140, 38
+---------------------------------------------------------------- window
 local window = new("CanvasGroup", {
-	Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(WIN_W, WIN_H), BackgroundColor3 = Color3.new(1, 1, 1),
+	Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 142, 0, 150),
+	Size = UDim2.fromOffset(256, 252), BackgroundColor3 = Color3.new(1, 1, 1),
 	BorderSizePixel = 0, GroupTransparency = 1, Visible = false,
 }, gui)
-corner(window, 12)
-new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(84, 52, 148), Color3.fromRGB(50, 30, 96)), Rotation = 90}, window)
-new("UIStroke", {Color = C.accent2, Thickness = 2, Transparency = 0.25}, window)
+corner(window, 14)
+new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(38, 22, 66), Color3.fromRGB(17, 10, 31)), Rotation = 90}, window)
+new("UIStroke", {Color = C.accent, Thickness = 1.5, Transparency = 0.35}, window)
 local winScale = new("UIScale", {Scale = 0.85}, window)
 
-local titleBar = new("Frame", {Size = UDim2.new(1, 0, 0, BAR_H), BackgroundColor3 = C.bar, BorderSizePixel = 0}, window)
-new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = C.accent2, BackgroundTransparency = 0.4, BorderSizePixel = 0}, titleBar)
+local header = new("Frame", {Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1}, window)
 new("TextLabel", {
-	BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -70, 1, 0),
-	Text = "Project Solar", Font = Enum.Font.GothamBold, TextSize = 19,
-	TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
-}, titleBar)
+	BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -52, 1, 0),
+	Text = "BLUE LOCK  |  TRAJECTORY", Font = Enum.Font.GothamBold, TextSize = 12,
+	TextColor3 = C.accent2, TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
 local hideBtn = new("TextButton", {
-	AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(32, 24),
+	AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(24, 22),
 	BackgroundColor3 = C.element, AutoButtonColor = false, Text = "-", Font = Enum.Font.GothamBold,
-	TextSize = 20, TextColor3 = C.text,
-}, titleBar)
+	TextSize = 16, TextColor3 = C.text,
+}, header)
 corner(hideBtn, 7)
 local hideScale = new("UIScale", {Scale = 1}, hideBtn)
 hoverFx(hideBtn, hideScale, C.element, C.elementHover)
-makeDraggable(titleBar, window)
+makeDraggable(header, window)
 
-local sidebar = new("Frame", {Position = UDim2.fromOffset(0, BAR_H), Size = UDim2.new(0, SIDE_W, 1, -BAR_H), BackgroundColor3 = C.side, BorderSizePixel = 0}, window)
-new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, sidebar)
-new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, sidebar)
-local pageHolder = new("Frame", {Position = UDim2.fromOffset(SIDE_W, BAR_H), Size = UDim2.new(1, -SIDE_W, 1, -BAR_H), BackgroundTransparency = 1, ClipsDescendants = true}, window)
-
--- resize grip (bottom-right corner)
-local grip = new("TextButton", {
-	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -5, 1, -5), Size = UDim2.fromOffset(18, 18),
-	BackgroundColor3 = C.accent2, BackgroundTransparency = 0.45, AutoButtonColor = false, Text = "", ZIndex = 20,
-}, window)
-corner(grip, 5)
-do
-	local MIN_W, MIN_H, MAX_W, MAX_H = 440, 270, 820, 460
-	local resizing, rInput, rSize, rPos = false, nil, nil, nil
-	bind(grip.InputBegan, function(input)
-		if isPress(input) then
-			resizing = true
-			rInput, rSize, rPos = input.Position, window.Size, window.Position
-			tween(grip, 0.1, {BackgroundTransparency = 0.1})
-			local c
-			c = input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					resizing = false
-					tween(grip, 0.15, {BackgroundTransparency = 0.45})
-					c:Disconnect()
-				end
-			end)
-		end
-	end)
-	bind(UserInputService.InputChanged, function(input)
-		if resizing and isMove(input) then
-			local d = input.Position - rInput
-			local w = math.clamp(rSize.X.Offset + d.X, MIN_W, MAX_W)
-			local h = math.clamp(rSize.Y.Offset + d.Y, MIN_H, MAX_H)
-			window.Size = UDim2.fromOffset(w, h)
-			window.Position = UDim2.new(rPos.X.Scale, rPos.X.Offset + (w - rSize.X.Offset) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y.Offset) / 2)
-		end
-	end)
-end
+local tabBar = new("Frame", {Position = UDim2.fromOffset(8, 34), Size = UDim2.new(1, -16, 0, 26), BackgroundTransparency = 1}, window)
+new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, tabBar)
+local pageHolder = new("Frame", {Position = UDim2.fromOffset(0, 64), Size = UDim2.new(1, 0, 1, -64), BackgroundTransparency = 1, ClipsDescendants = true}, window)
 
 local tabs, currentTab = {}, nil
 
@@ -631,26 +590,24 @@ function selectTab(name)
 	local g = tabs[name].group
 	g.Visible = true
 	g.GroupTransparency = 1
-	g.Position = UDim2.fromOffset(16, 0)
+	g.Position = UDim2.fromOffset(14, 0)
 	tween(g, 0.22, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)})
 end
 
 local function addTab(name)
 	local btn = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = name,
-		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.sub, TextXAlignment = Enum.TextXAlignment.Left,
-		LayoutOrder = nextOrder(),
-	}, sidebar)
+		Size = UDim2.new(1 / 3, -4, 1, 0), BackgroundColor3 = C.element, AutoButtonColor = false,
+		Text = name, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.sub, LayoutOrder = nextOrder(),
+	}, tabBar)
 	corner(btn, 8)
-	new("UIPadding", {PaddingLeft = UDim.new(0, 14)}, btn)
 	local group = new("CanvasGroup", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, GroupTransparency = 1}, pageHolder)
 	local scroll = new("ScrollingFrame", {
-		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4,
-		ScrollBarImageColor3 = C.accent2, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+		ScrollBarImageColor3 = C.accent, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, group)
-	new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
-	new("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 30)}, scroll)
+	new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
+	new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8)}, scroll)
 	tabs[name] = {btn = btn, group = group}
 	bind(btn.Activated, function() selectTab(name) end)
 	bind(btn.MouseEnter, function() if currentTab ~= name then tween(btn, 0.12, {BackgroundColor3 = C.elementHover}) end end)
@@ -659,54 +616,54 @@ local function addTab(name)
 end
 
 local function addToggle(page, text, initial, callback)
-	local row = new("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = "", LayoutOrder = nextOrder()}, page)
+	local row = new("TextButton", {Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = C.element, AutoButtonColor = false, Text = "", LayoutOrder = nextOrder()}, page)
 	corner(row, 8)
 	local sc = new("UIScale", {Scale = 1}, row)
 	new("TextLabel", {
-		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -80, 1, 0),
-		Text = text, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text,
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -62, 1, 0),
+		Text = text, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = C.text,
 	}, row)
 	local state = initial
 	local track = new("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(46, 24),
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(38, 18),
 		BackgroundColor3 = state and C.accent or C.off, BorderSizePixel = 0,
 	}, row)
-	corner(track, 12)
+	corner(track, 9)
 	local knob = new("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
-		Position = state and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+		Position = state and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 2, 0.5, 0),
 	}, track)
-	corner(knob, 9)
+	corner(knob, 7)
 	hoverFx(row, sc, C.element, C.elementHover)
 	bind(row.Activated, function()
 		state = not state
 		tween(track, 0.18, {BackgroundColor3 = state and C.accent or C.off})
-		tween(knob, 0.2, {Position = state and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)}, Enum.EasingStyle.Back)
+		tween(knob, 0.2, {Position = state and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)}, Enum.EasingStyle.Back)
 		callback(state)
 	end)
 end
 
 local function addSlider(page, text, min, max, step, initial, fmt, callback)
-	local row = new("Frame", {Size = UDim2.new(1, 0, 0, 54), BackgroundColor3 = C.element, LayoutOrder = nextOrder()}, page)
+	local row = new("Frame", {Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = C.element, LayoutOrder = nextOrder()}, page)
 	corner(row, 8)
 	new("TextLabel", {
-		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -110, 0, 18), Text = text,
-		Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -80, 0, 16), Text = text,
+		Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
 	}, row)
 	local valLbl = new("TextLabel", {
-		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 6), Size = UDim2.fromOffset(90, 18),
-		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.accent2, TextXAlignment = Enum.TextXAlignment.Right, Text = "",
+		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 4), Size = UDim2.fromOffset(70, 16),
+		Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = C.accent2, TextXAlignment = Enum.TextXAlignment.Right, Text = "",
 	}, row)
-	local track = new("Frame", {Position = UDim2.new(0, 14, 0, 37), Size = UDim2.new(1, -28, 0, 8), BackgroundColor3 = C.off, BorderSizePixel = 0}, row)
-	corner(track, 4)
-	local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.accent2, BorderSizePixel = 0}, track)
-	corner(fill, 4)
+	local track = new("Frame", {Position = UDim2.new(0, 10, 0, 31), Size = UDim2.new(1, -20, 0, 6), BackgroundColor3 = C.off, BorderSizePixel = 0}, row)
+	corner(track, 3)
+	local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.accent, BorderSizePixel = 0}, track)
+	corner(fill, 3)
 	local knob = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(18, 18),
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(14, 14),
 		BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 2, BorderSizePixel = 0,
 	}, track)
-	corner(knob, 9)
-	local hit = new("TextButton", {BackgroundTransparency = 1, Text = "", Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 28), ZIndex = 3}, row)
+	corner(knob, 7)
+	local hit = new("TextButton", {BackgroundTransparency = 1, Text = "", Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 24), ZIndex = 3}, row)
 	local value = initial
 	local function render()
 		local a = (value - min) / (max - min)
@@ -729,18 +686,20 @@ local function addSlider(page, text, min, max, step, initial, fmt, callback)
 		if isPress(i) then
 			dragging = true
 			page.ScrollingEnabled = false
-			tween(knob, 0.1, {Size = UDim2.fromOffset(23, 23)})
+			tween(knob, 0.1, {Size = UDim2.fromOffset(18, 18)})
 			fromX(i.Position.X)
 		end
 	end)
 	bind(UserInputService.InputChanged, function(i)
-		if dragging and isMove(i) then fromX(i.Position.X) end
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			fromX(i.Position.X)
+		end
 	end)
 	bind(UserInputService.InputEnded, function(i)
 		if dragging and isPress(i) then
 			dragging = false
 			page.ScrollingEnabled = true
-			tween(knob, 0.1, {Size = UDim2.fromOffset(18, 18)})
+			tween(knob, 0.1, {Size = UDim2.fromOffset(14, 14)})
 		end
 	end)
 end
@@ -749,8 +708,8 @@ local function addButton(page, text, callback, base)
 	base = base or C.accent
 	local hover = base:Lerp(Color3.new(1, 1, 1), 0.18)
 	local b = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = base, AutoButtonColor = false, Text = text,
-		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.new(1, 1, 1), LayoutOrder = nextOrder(),
+		Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = base, AutoButtonColor = false, Text = text,
+		Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = Color3.new(1, 1, 1), LayoutOrder = nextOrder(),
 	}, page)
 	corner(b, 8)
 	local sc = new("UIScale", {Scale = 1}, b)
@@ -762,7 +721,7 @@ end
 local function addInfo(page, text)
 	return new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = text,
-		TextWrapped = true, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = C.sub,
+		TextWrapped = true, Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = C.sub,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = nextOrder(),
 	}, page)
 end
@@ -770,12 +729,12 @@ end
 ---------------------------------------------------------------- bubble + menu open/close
 local menuOpen = false
 local bubble = new("TextButton", {
-	Name = "Bubble", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 32, 0.5, 0), Size = UDim2.fromOffset(40, 40),
-	BackgroundColor3 = C.accent, BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "PS",
-	Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.new(1, 1, 1), Visible = false,
+	Name = "Bubble", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 28, 0.5, 0), Size = UDim2.fromOffset(34, 34),
+	BackgroundColor3 = C.accent, BackgroundTransparency = 0.25, AutoButtonColor = false, Text = "BL",
+	Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = Color3.new(1, 1, 1), Visible = false,
 }, gui)
-corner(bubble, 20)
-new("UIStroke", {Color = C.accent2, Thickness = 1.6, Transparency = 0.2}, bubble)
+corner(bubble, 17)
+new("UIStroke", {Color = C.accent2, Thickness = 1.2, Transparency = 0.4}, bubble)
 local bubbleScale = new("UIScale", {Scale = 1}, bubble)
 makeDraggable(bubble, bubble, function() setMenu(true) end)
 
@@ -870,7 +829,7 @@ addToggle(setPage, "Horizontal distance only", S.horizontal, function(v)
 	S.horizontal = v
 	if shot and shot.state == "landed" and S.distance and labelShown then showLabel(distText(shot)) end
 end)
-addInfo(setPage, "Hide the window with the '-' button. Reopen it with the menu key or the floating PS button. Drag the title bar to move the window and the square in its bottom-right corner to resize it.")
+addInfo(setPage, "Hide the menu with the '-' button. Reopen: menu key or the floating button.")
 addButton(setPage, "Unload script", function() Unload() end, C.danger)
 
 ---------------------------------------------------------------- input
@@ -943,7 +902,7 @@ bind(RunService.Heartbeat, function(dt)
 		local ok, err = pcall(tick, step)
 		if not ok then
 			errCount += 1
-			if errCount <= 3 then warn("[Project Solar] " .. tostring(err)) end
+			if errCount <= 3 then warn("[BLR Trajectory] " .. tostring(err)) end
 		end
 	end
 	if shot and shot.state == "landed" and os.clock() - shot.doneAt >= S.fadeDelay then
