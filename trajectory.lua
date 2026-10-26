@@ -1,4 +1,4 @@
---[[ Project Solar | Blue Lock: Rivals - Ball Trajectory + Distance | Delta-compatible | light theme ]]
+--[[ Project Solar | Blue Lock: Rivals - Ball Trajectory + Distance + Slow drain | black/white theme ]]
 local env = (getgenv and getgenv()) or _G
 if type(env.__BLR_TRAJ) == "table" and type(env.__BLR_TRAJ.Unload) == "function" then
 	pcall(env.__BLR_TRAJ.Unload)
@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 ---------------------------------------------------------------- settings
@@ -17,7 +18,7 @@ local S = {
 	trajectory = true, distance = true, horizontal = false, marker = true,
 	range = 300, minSpeed = 35, thickness = 0.35, opacity = 0.85, colorIndex = 1,
 	labelSize = 20, gravityScale = 1, fadeDelay = 3, updateRate = 30,
-	bubble = true, menuKey = Enum.KeyCode.RightShift,
+	bubble = true, menuKey = Enum.KeyCode.RightShift, menuAlpha = 0.15,
 }
 local COLORS = {
 	{"Violet", Color3.fromRGB(176, 120, 255)},
@@ -28,13 +29,19 @@ local COLORS = {
 	{"White", Color3.fromRGB(255, 255, 255)},
 }
 local C = {
-	bg = Color3.fromRGB(246, 241, 255), side = Color3.fromRGB(232, 222, 252), bar = Color3.fromRGB(104, 68, 182),
-	element = Color3.fromRGB(222, 208, 250), elementHover = Color3.fromRGB(204, 185, 245),
+	black = Color3.fromRGB(0, 0, 0), line = Color3.fromRGB(58, 58, 72),
+	element = Color3.fromRGB(240, 240, 247), elementHover = Color3.fromRGB(226, 218, 252),
 	accent = Color3.fromRGB(150, 98, 250), accent2 = Color3.fromRGB(112, 64, 214),
-	off = Color3.fromRGB(176, 158, 220), text = Color3.fromRGB(44, 24, 88),
-	sub = Color3.fromRGB(94, 74, 140), danger = Color3.fromRGB(214, 62, 118),
+	accentLight = Color3.fromRGB(196, 170, 255), off = Color3.fromRGB(176, 176, 194),
+	text = Color3.fromRGB(22, 18, 38), sub = Color3.fromRGB(205, 198, 230),
+	danger = Color3.fromRGB(214, 62, 118),
 	label = Color3.fromRGB(58, 36, 108), labelStroke = Color3.fromRGB(232, 215, 255),
 }
+local FONT_NAME = Enum.Font.GothamBold
+do
+	local ok, f = pcall(function() return Enum.Font.FredokaOne end)
+	if ok and f then FONT_NAME = f end
+end
 local KICK_DELTA, MAX_SEG = 18, 56
 
 ---------------------------------------------------------------- helpers / state
@@ -480,6 +487,139 @@ local function tick(dt)
 	lastPos, lastT = pos, now
 end
 
+---------------------------------------------------------------- slow drain (stamina / flow)
+local DRAINS = {
+	stamina = {title = "Stamina", defaults = {"stamina", "stam"}, hints = {"stamina", "stam"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
+	flow = {title = "Flow", defaults = {"flow"}, hints = {"flow"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
+}
+local DRAIN_BAD = {"max", "regen", "rate", "cost", "cooldown", "speed", "mult", "enabled", "bar", "gui", "text", "delay", "limit", "stamp"}
+
+local function nameMatches(name, hints)
+	local l = name:lower()
+	local ok = false
+	for _, h in ipairs(hints) do
+		if l:find(h, 1, true) then ok = true; break end
+	end
+	if not ok then return false end
+	for _, b in ipairs(DRAIN_BAD) do
+		if l:find(b, 1, true) then return false end
+	end
+	return true
+end
+
+local function mark(seen, inst, key)
+	local s = seen[inst]
+	if not s then s = {}; seen[inst] = s end
+	if s[key] then return false end
+	s[key] = true
+	return true
+end
+
+local function considerInstance(inst, d, found, seen)
+	if (inst:IsA("NumberValue") or inst:IsA("IntValue")) and nameMatches(inst.Name, d.hints) then
+		if mark(seen, inst, "\0value") then found[#found + 1] = {inst = inst, kind = "value"} end
+	end
+	for name, val in pairs(inst:GetAttributes()) do
+		if type(val) == "number" and nameMatches(name, d.hints) then
+			if mark(seen, inst, name) then found[#found + 1] = {inst = inst, kind = "attr", name = name} end
+		end
+	end
+end
+
+local function describeTarget(t)
+	return t.inst:GetFullName() .. (t.kind == "attr" and ("@" .. t.name) or "")
+end
+
+local function updateDrainStatus(kind)
+	local d = DRAINS[kind]
+	if not d.statusLabel then return end
+	local txt
+	if d.scanning then
+		txt = "scanning..."
+	elseif #d.targets == 0 then
+		txt = "not found (try another name below)"
+	else
+		txt = describeTarget(d.targets[1]) .. (#d.targets > 1 and (" +" .. (#d.targets - 1) .. " more") or "")
+	end
+	d.statusLabel.Text = d.title .. ": " .. txt
+end
+
+local function detachDrain(d)
+	for _, c in ipairs(d.conns) do pcall(function() c:Disconnect() end) end
+	d.conns, d.targets = {}, {}
+end
+
+local function attachTarget(d, t)
+	local function get()
+		if t.kind == "value" then return t.inst.Value end
+		return t.inst:GetAttribute(t.name)
+	end
+	local function set(v)
+		if t.kind == "value" then t.inst.Value = v else t.inst:SetAttribute(t.name, v) end
+	end
+	t.last = get()
+	local busy = false
+	local function onChange()
+		if busy then return end
+		local v = get()
+		if type(v) ~= "number" then return end
+		if d.on and t.last and v < t.last then
+			local nv = t.last - (t.last - v) / d.ratio
+			if t.kind == "value" and t.inst:IsA("IntValue") then nv = math.floor(nv + math.random()) end
+			busy = true
+			pcall(set, nv)
+			busy = false
+			t.last = nv
+		else
+			t.last = v
+		end
+	end
+	local sig
+	if t.kind == "value" then sig = t.inst:GetPropertyChangedSignal("Value") else sig = t.inst:GetAttributeChangedSignal(t.name) end
+	d.conns[#d.conns + 1] = sig:Connect(onChange)
+end
+
+local function scanDrain(kind)
+	local d = DRAINS[kind]
+	if d.scanning then return end
+	d.scanning = true
+	detachDrain(d)
+	updateDrainStatus(kind)
+	task.spawn(function()
+		local found, seen, n = {}, {}, 0
+		local function walk(root)
+			considerInstance(root, d, found, seen)
+			for _, inst in ipairs(root:GetDescendants()) do
+				considerInstance(inst, d, found, seen)
+				n += 1
+				if n % 400 == 0 then task.wait() end
+			end
+		end
+		pcall(walk, LocalPlayer)
+		if LocalPlayer.Character then pcall(walk, LocalPlayer.Character) end
+		pcall(function()
+			for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
+				if inst.Name == LocalPlayer.Name or inst.Name == tostring(LocalPlayer.UserId) then walk(inst) end
+				n += 1
+				if n % 400 == 0 then task.wait() end
+			end
+		end)
+		if alive then
+			for _, t in ipairs(found) do pcall(attachTarget, d, t) end
+			d.targets = found
+		end
+		d.scanning = false
+		updateDrainStatus(kind)
+	end)
+end
+
+local function parseHints(str, fallback)
+	local list = {}
+	for token in string.gmatch(str:lower(), "[^,%s]+") do list[#list + 1] = token end
+	if #list == 0 then return fallback end
+	return list
+end
+
 ---------------------------------------------------------------- UI helpers
 local function guiParent()
 	local ok, h = pcall(function() return gethui and gethui() end)
@@ -545,20 +685,19 @@ local function hoverFx(btn, sc, base, hover)
 	bind(btn.InputEnded, function(i) if isPress(i) then tween(sc, 0.14, {Scale = 1}, Enum.EasingStyle.Back) end end)
 end
 
----------------------------------------------------------------- window (desktop style, light)
-local WIN_W, WIN_H, SIDE_W, BAR_H = 560, 330, 140, 38
+---------------------------------------------------------------- window (desktop style, black)
+local WIN_W, WIN_H, SIDE_W, BAR_H = 560, 330, 156, 38
 local window = new("CanvasGroup", {
 	Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(WIN_W, WIN_H), BackgroundColor3 = Color3.new(1, 1, 1),
+	Size = UDim2.fromOffset(WIN_W, WIN_H), BackgroundColor3 = C.black, BackgroundTransparency = S.menuAlpha,
 	BorderSizePixel = 0, GroupTransparency = 1, Visible = false,
 }, gui)
 corner(window, 12)
-new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(250, 246, 255), Color3.fromRGB(230, 220, 252)), Rotation = 90}, window)
-new("UIStroke", {Color = C.accent2, Thickness = 2, Transparency = 0.25}, window)
+new("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 0.3}, window)
 local winScale = new("UIScale", {Scale = 0.85}, window)
 
-local titleBar = new("Frame", {Size = UDim2.new(1, 0, 0, BAR_H), BackgroundColor3 = C.bar, BorderSizePixel = 0}, window)
-new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = C.labelStroke, BackgroundTransparency = 0.4, BorderSizePixel = 0}, titleBar)
+local titleBar = new("Frame", {Size = UDim2.new(1, 0, 0, BAR_H), BackgroundColor3 = C.black, BackgroundTransparency = S.menuAlpha, BorderSizePixel = 0}, window)
+new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = C.accent, BorderSizePixel = 0}, titleBar)
 new("TextLabel", {
 	BackgroundTransparency = 1, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -70, 1, 0),
 	Text = "Project Solar", Font = Enum.Font.GothamBold, TextSize = 19,
@@ -566,38 +705,75 @@ new("TextLabel", {
 }, titleBar)
 local hideBtn = new("TextButton", {
 	AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(32, 24),
-	BackgroundColor3 = C.accent, AutoButtonColor = false, Text = "-", Font = Enum.Font.GothamBold,
-	TextSize = 20, TextColor3 = Color3.new(1, 1, 1),
+	BackgroundColor3 = C.element, AutoButtonColor = false, Text = "-", Font = Enum.Font.GothamBold,
+	TextSize = 20, TextColor3 = C.text,
 }, titleBar)
 corner(hideBtn, 7)
 local hideScale = new("UIScale", {Scale = 1}, hideBtn)
-hoverFx(hideBtn, hideScale, C.accent, C.accent:Lerp(Color3.new(1, 1, 1), 0.25))
+hoverFx(hideBtn, hideScale, C.element, C.elementHover)
 makeDraggable(titleBar, window)
 
-local sidebar = new("Frame", {Position = UDim2.fromOffset(0, BAR_H), Size = UDim2.new(0, SIDE_W, 1, -BAR_H), BackgroundColor3 = C.side, BorderSizePixel = 0}, window)
+local sidebar = new("Frame", {Position = UDim2.fromOffset(0, BAR_H), Size = UDim2.new(0, SIDE_W, 1, -BAR_H), BackgroundColor3 = C.black, BackgroundTransparency = S.menuAlpha, BorderSizePixel = 0}, window)
 new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, sidebar)
 new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, sidebar)
+new("Frame", {Position = UDim2.fromOffset(SIDE_W - 1, BAR_H), Size = UDim2.new(0, 1, 1, -BAR_H), BackgroundColor3 = C.line, BorderSizePixel = 0}, window)
 local pageHolder = new("Frame", {Position = UDim2.fromOffset(SIDE_W, BAR_H), Size = UDim2.new(1, -SIDE_W, 1, -BAR_H), BackgroundTransparency = 1, ClipsDescendants = true}, window)
+
+local function applyTheme()
+	window.BackgroundTransparency = S.menuAlpha
+	titleBar.BackgroundTransparency = S.menuAlpha
+	sidebar.BackgroundTransparency = S.menuAlpha
+end
+
+-- user card (avatar in a circle + real Roblox username)
+local userCard = new("Frame", {Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, LayoutOrder = nextOrder()}, sidebar)
+local avatar = new("ImageLabel", {
+	AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = Color3.fromRGB(28, 28, 36), BorderSizePixel = 0, ScaleType = Enum.ScaleType.Crop,
+	Image = "rbxthumb://type=AvatarBust&id=" .. LocalPlayer.UserId .. "&w=150&h=150", ImageTransparency = 1,
+}, userCard)
+corner(avatar, 21)
+new("UIStroke", {Color = C.accent, Thickness = 2}, avatar)
+local nameLbl = new("TextLabel", {
+	BackgroundTransparency = 1, Position = UDim2.fromOffset(52, 0), Size = UDim2.new(1, -52, 1, 0), Text = LocalPlayer.Name,
+	Font = FONT_NAME, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left,
+}, userCard)
+new("UITextSizeConstraint", {MaxTextSize = 16, MinTextSize = 8}, nameLbl)
+new("Frame", {Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.line, BorderSizePixel = 0, LayoutOrder = nextOrder()}, sidebar)
+task.spawn(function()
+	local t0 = os.clock()
+	while alive and not avatar.IsLoaded and os.clock() - t0 < 4 do task.wait(0.1) end
+	if not alive then return end
+	if not avatar.IsLoaded then
+		local ok, url = pcall(function()
+			return (Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150))
+		end)
+		if ok and url then avatar.Image = url end
+		t0 = os.clock()
+		while alive and not avatar.IsLoaded and os.clock() - t0 < 4 do task.wait(0.1) end
+	end
+	if alive then tween(avatar, 0.35, {ImageTransparency = 0}) end
+end)
 
 -- resize grip (bottom-right corner)
 local grip = new("TextButton", {
 	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -5, 1, -5), Size = UDim2.fromOffset(18, 18),
-	BackgroundColor3 = C.accent2, BackgroundTransparency = 0.45, AutoButtonColor = false, Text = "", ZIndex = 20,
+	BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.6, AutoButtonColor = false, Text = "", ZIndex = 20,
 }, window)
 corner(grip, 5)
 do
-	local MIN_W, MIN_H, MAX_W, MAX_H = 440, 270, 820, 460
+	local MIN_W, MIN_H, MAX_W, MAX_H = 440, 300, 820, 460
 	local resizing, rInput, rSize, rPos = false, nil, nil, nil
 	bind(grip.InputBegan, function(input)
 		if isPress(input) then
 			resizing = true
 			rInput, rSize, rPos = input.Position, window.Size, window.Position
-			tween(grip, 0.1, {BackgroundTransparency = 0.1})
+			tween(grip, 0.1, {BackgroundTransparency = 0.2})
 			local c
 			c = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					resizing = false
-					tween(grip, 0.15, {BackgroundTransparency = 0.45})
+					tween(grip, 0.15, {BackgroundTransparency = 0.6})
 					c:Disconnect()
 				end
 			end)
@@ -622,7 +798,8 @@ function selectTab(name)
 	currentTab = name
 	for n, t in pairs(tabs) do
 		local active = n == name
-		tween(t.btn, 0.18, {BackgroundColor3 = active and C.accent or C.element, TextColor3 = active and Color3.new(1, 1, 1) or C.sub})
+		tween(t.btn, 0.18, {BackgroundColor3 = active and Color3.new(1, 1, 1) or C.element, TextColor3 = active and C.accent2 or C.text})
+		tween(t.stroke, 0.18, {Transparency = active and 0 or 1})
 	end
 	if old and tabs[old] then
 		local og = tabs[old].group
@@ -639,20 +816,21 @@ end
 local function addTab(name)
 	local btn = new("TextButton", {
 		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = name,
-		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.sub, TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
 		LayoutOrder = nextOrder(),
 	}, sidebar)
 	corner(btn, 8)
 	new("UIPadding", {PaddingLeft = UDim.new(0, 14)}, btn)
+	local stroke = new("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, btn)
 	local group = new("CanvasGroup", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, GroupTransparency = 1}, pageHolder)
 	local scroll = new("ScrollingFrame", {
 		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4,
-		ScrollBarImageColor3 = C.accent2, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarImageColor3 = C.accentLight, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, group)
 	new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
 	new("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 30)}, scroll)
-	tabs[name] = {btn = btn, group = group}
+	tabs[name] = {btn = btn, group = group, stroke = stroke}
 	bind(btn.Activated, function() selectTab(name) end)
 	bind(btn.MouseEnter, function() if currentTab ~= name then tween(btn, 0.12, {BackgroundColor3 = C.elementHover}) end end)
 	bind(btn.MouseLeave, function() if currentTab ~= name then tween(btn, 0.12, {BackgroundColor3 = C.element}) end end)
@@ -700,13 +878,14 @@ local function addSlider(page, text, min, max, step, initial, fmt, callback)
 	}, row)
 	local track = new("Frame", {Position = UDim2.new(0, 14, 0, 37), Size = UDim2.new(1, -28, 0, 8), BackgroundColor3 = C.off, BorderSizePixel = 0}, row)
 	corner(track, 4)
-	local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.accent2, BorderSizePixel = 0}, track)
+	local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.accent, BorderSizePixel = 0}, track)
 	corner(fill, 4)
 	local knob = new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(18, 18),
 		BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 2, BorderSizePixel = 0,
 	}, track)
 	corner(knob, 9)
+	new("UIStroke", {Color = C.accent, Thickness = 2}, knob)
 	local hit = new("TextButton", {BackgroundTransparency = 1, Text = "", Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 28), ZIndex = 3}, row)
 	local value = initial
 	local function render()
@@ -747,12 +926,12 @@ local function addSlider(page, text, min, max, step, initial, fmt, callback)
 end
 
 local function addButton(page, text, callback, base)
-	base = base or C.accent
-	local isLight = (base == C.element)
-	local hover = isLight and C.elementHover or base:Lerp(Color3.new(1, 1, 1), 0.18)
+	base = base or C.element
+	local light = (base == C.element)
+	local hover = light and C.elementHover or base:Lerp(Color3.new(1, 1, 1), 0.18)
 	local b = new("TextButton", {
 		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = base, AutoButtonColor = false, Text = text,
-		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = isLight and C.text or Color3.new(1, 1, 1),
+		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = light and C.text or Color3.new(1, 1, 1),
 		LayoutOrder = nextOrder(),
 	}, page)
 	corner(b, 8)
@@ -770,15 +949,33 @@ local function addInfo(page, text)
 	}, page)
 end
 
+local function addTextInput(page, text, default, callback)
+	local row = new("Frame", {Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = C.element, LayoutOrder = nextOrder()}, page)
+	corner(row, 8)
+	new("TextLabel", {
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0.4, -14, 1, 0), Text = text,
+		Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+	local box = new("TextBox", {
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.6, -12, 0, 28),
+		BackgroundColor3 = Color3.fromRGB(216, 212, 236), Text = default, PlaceholderText = "name1, name2", ClearTextOnFocus = false,
+		Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = C.text, PlaceholderColor3 = Color3.fromRGB(120, 114, 150),
+		TextTruncate = Enum.TextTruncate.AtEnd,
+	}, row)
+	corner(box, 6)
+	bind(box.FocusLost, function() callback(box.Text) end)
+	return box
+end
+
 ---------------------------------------------------------------- bubble + menu open/close
 local menuOpen = false
 local bubble = new("TextButton", {
 	Name = "Bubble", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 32, 0.5, 0), Size = UDim2.fromOffset(40, 40),
-	BackgroundColor3 = C.accent, BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "PS",
+	BackgroundColor3 = C.black, BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "PS",
 	Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.new(1, 1, 1), Visible = false,
 }, gui)
 corner(bubble, 20)
-new("UIStroke", {Color = C.labelStroke, Thickness = 1.6, Transparency = 0.2}, bubble)
+new("UIStroke", {Color = C.accent, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, bubble)
 local bubbleScale = new("UIScale", {Scale = 1}, bubble)
 makeDraggable(bubble, bubble, function() setMenu(true) end)
 
@@ -812,6 +1009,7 @@ bind(hideBtn.Activated, function() setMenu(false) end)
 
 ---------------------------------------------------------------- pages
 local ballPage = addTab("Ball")
+local playerPage = addTab("Player")
 local visPage = addTab("Visuals")
 local setPage = addTab("Settings")
 
@@ -832,7 +1030,7 @@ end)
 addSlider(ballPage, "Prediction range", 40, 800, 10, S.range, function(v) return string.format("%d st", v) end, function(v) S.range = v end)
 addSlider(ballPage, "Min kick speed", 10, 100, 1, S.minSpeed, function(v) return string.format("%d st/s", v) end, function(v) S.minSpeed = v end)
 statusLabel = addInfo(ballPage, "Ball: searching...")
-statusLabel.TextColor3 = C.accent2
+statusLabel.TextColor3 = C.accentLight
 statusLabel.Font = Enum.Font.GothamMedium
 addButton(ballPage, "Pick ball (tap it)", function()
 	pickMode = true
@@ -845,7 +1043,32 @@ addButton(ballPage, "Auto-detect ball", function()
 	scan()
 	nextSelect = 0
 	updateStatus()
-end, C.element)
+end)
+
+-- Player (slow drain)
+addToggle(playerPage, "Slow stamina drain", DRAINS.stamina.on, function(v) DRAINS.stamina.on = v end)
+addSlider(playerPage, "Stamina slowdown", 1.1, 4, 0.1, DRAINS.stamina.ratio, function(v) return string.format("x%.1f", v) end, function(v) DRAINS.stamina.ratio = v end)
+addToggle(playerPage, "Slow Flow drain", DRAINS.flow.on, function(v) DRAINS.flow.on = v end)
+addSlider(playerPage, "Flow slowdown", 1.1, 4, 0.1, DRAINS.flow.ratio, function(v) return string.format("x%.1f", v) end, function(v) DRAINS.flow.ratio = v end)
+for _, kind in ipairs({"stamina", "flow"}) do
+	local d = DRAINS[kind]
+	d.statusLabel = addInfo(playerPage, d.title .. ": not scanned")
+	d.statusLabel.TextColor3 = C.accentLight
+	d.statusLabel.Font = Enum.Font.GothamMedium
+end
+addTextInput(playerPage, "Stamina name", "stamina", function(txt)
+	DRAINS.stamina.hints = parseHints(txt, DRAINS.stamina.defaults)
+	scanDrain("stamina")
+end)
+addTextInput(playerPage, "Flow name", "flow", function(txt)
+	DRAINS.flow.hints = parseHints(txt, DRAINS.flow.defaults)
+	scanDrain("flow")
+end)
+addButton(playerPage, "Rescan values", function()
+	scanDrain("stamina")
+	scanDrain("flow")
+end)
+addInfo(playerPage, "Works only if the game keeps stamina/Flow as values (or attributes) the client can change. If it says 'not found', type the real object name above.")
 
 -- Visuals
 addSlider(visPage, "Line thickness", 0.1, 1.5, 0.05, S.thickness, function(v) return string.format("%.2f", v) end, function(v) S.thickness = v; applyStyle() end)
@@ -859,12 +1082,13 @@ addToggle(visPage, "Landing marker", S.marker, function(v) S.marker = v; applyTr
 addSlider(visPage, "Label size", 14, 32, 1, S.labelSize, function(v) return string.format("%d", v) end, function(v) S.labelSize = v; applyStyle() end)
 
 -- Settings
+addSlider(setPage, "Menu transparency", 0, 0.7, 0.05, S.menuAlpha, function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end, function(v) S.menuAlpha = v; applyTheme() end)
 local keyBtn
 local listening = false
 keyBtn = addButton(setPage, "Menu key: " .. S.menuKey.Name, function()
 	listening = true
 	keyBtn.Text = "Press a key... (Esc = cancel)"
-end, C.element)
+end)
 addToggle(setPage, "Floating button", S.bubble, function(v) S.bubble = v; refreshBubble() end)
 addSlider(setPage, "Fade delay", 1, 10, 0.5, S.fadeDelay, function(v) return string.format("%.1f s", v) end, function(v) S.fadeDelay = v end)
 addSlider(setPage, "Update rate", 15, 60, 5, S.updateRate, function(v) return string.format("%d Hz", v) end, function(v) S.updateRate = v end)
@@ -965,12 +1189,29 @@ bind(RunService.Heartbeat, function(dt)
 end)
 
 bind(Workspace.DescendantAdded, consider)
+bind(LocalPlayer.CharacterAdded, function()
+	task.delay(2, function()
+		if alive then
+			scanDrain("stamina")
+			scanDrain("flow")
+		end
+	end)
+end)
+task.spawn(function()
+	while alive do
+		task.wait(15)
+		for kind, d in pairs(DRAINS) do
+			if alive and d.on and #d.targets == 0 and not d.scanning then scanDrain(kind) end
+		end
+	end
+end)
 
 ---------------------------------------------------------------- unload / init
 function Unload()
 	if not alive then return end
 	alive = false
 	for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+	for _, d in pairs(DRAINS) do detachDrain(d) end
 	pcall(function() folder:Destroy() end)
 	pcall(function() gui:Destroy() end)
 	candidates = {}
@@ -978,7 +1219,10 @@ function Unload()
 end
 env.__BLR_TRAJ = {Unload = Unload}
 
+applyTheme()
 applyStyle()
 scan()
+scanDrain("stamina")
+scanDrain("flow")
 selectTab("Ball")
 setMenu(true)
