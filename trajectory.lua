@@ -1,4 +1,4 @@
---[[ Project Solar | Blue Lock: Rivals - Ball Trajectory + Distance + Slow drain | black/white theme ]]
+--[[ Project Solar | Blue Lock: Rivals - Trajectory, Highlight, Slow drain | black/white theme, EN/RU ]]
 local env = (getgenv and getgenv()) or _G
 if type(env.__BLR_TRAJ) == "table" and type(env.__BLR_TRAJ.Unload) == "function" then
 	pcall(env.__BLR_TRAJ.Unload)
@@ -11,6 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
 ---------------------------------------------------------------- settings
@@ -18,15 +19,23 @@ local S = {
 	trajectory = true, distance = true, horizontal = false, marker = true,
 	range = 300, minSpeed = 35, thickness = 0.35, opacity = 0.85, colorIndex = 1,
 	labelSize = 20, gravityScale = 1, fadeDelay = 3, updateRate = 30,
-	bubble = true, menuKey = Enum.KeyCode.RightShift, menuAlpha = 0.15,
+	bubble = true, menuKey = Enum.KeyCode.RightShift, menuAlpha = 0.2, btnAlpha = 0.15,
+	highlight = true, hlBright = 0.7, hlColor = 4,
 }
 local COLORS = {
-	{"Violet", Color3.fromRGB(176, 120, 255)},
-	{"Pink", Color3.fromRGB(255, 100, 200)},
-	{"Cyan", Color3.fromRGB(80, 230, 255)},
-	{"Lime", Color3.fromRGB(150, 255, 90)},
-	{"Orange", Color3.fromRGB(255, 170, 60)},
-	{"White", Color3.fromRGB(255, 255, 255)},
+	{"violet", Color3.fromRGB(176, 120, 255)},
+	{"pink", Color3.fromRGB(255, 100, 200)},
+	{"cyan", Color3.fromRGB(80, 230, 255)},
+	{"lime", Color3.fromRGB(150, 255, 90)},
+	{"orange", Color3.fromRGB(255, 170, 60)},
+	{"white", Color3.fromRGB(255, 255, 255)},
+}
+local HL_COLORS = {
+	{"white", Color3.fromRGB(255, 255, 255)},
+	{"green", Color3.fromRGB(70, 235, 120)},
+	{"blue", Color3.fromRGB(70, 150, 255)},
+	{"violet", Color3.fromRGB(176, 110, 255)},
+	{"red", Color3.fromRGB(255, 70, 70)},
 }
 local C = {
 	black = Color3.fromRGB(0, 0, 0), line = Color3.fromRGB(58, 58, 72),
@@ -44,6 +53,81 @@ do
 end
 local KICK_DELTA, MAX_SEG = 18, 56
 
+---------------------------------------------------------------- language
+local LANG = "en"
+local STR = {
+	en = {
+		tab_ball = "Ball", tab_player = "Player", tab_visuals = "Visuals", tab_settings = "Settings",
+		ball_traj = "Ball Trajectory", ball_dist = "Distance (studs)", ball_range = "Prediction range",
+		ball_minspeed = "Min kick speed", ball_hl = "Ball highlight", ball_hlbright = "Highlight brightness",
+		ball_hlcolor = "Highlight color", ball_pick = "Pick ball (tap it)", ball_auto = "Auto-detect ball",
+		u_st = "%d st", u_sts = "%d st/s", u_s = "%.1f s", u_hz = "%d Hz",
+		st_ball = "Ball", st_search = "searching...", st_auto = "auto", st_manual = "manual",
+		st_tap = "Tap the ball in the world...", st_notball = "That's not the ball - tap closer",
+		pl_stam = "Slow stamina drain", pl_stamr = "Stamina slowdown", pl_flow = "Slow Flow drain", pl_flowr = "Flow slowdown",
+		pl_stamname = "Stamina name", pl_flowname = "Flow name", pl_ph = "name1, name2", pl_rescan = "Rescan values",
+		pl_info = "Works only if the game keeps stamina/Flow as values (or attributes) the client can change. If it says 'not found', type the real object name above.",
+		dr_stamina = "Stamina", dr_flow = "Flow", dr_scanning = "scanning...",
+		dr_notfound = "not found (try another name below)", dr_more = " +%d more",
+		vis_thick = "Line thickness", vis_opacity = "Line opacity", vis_color = "Line color",
+		vis_marker = "Landing marker", vis_labelsize = "Label size",
+		col_violet = "Violet", col_pink = "Pink", col_cyan = "Cyan", col_lime = "Lime", col_orange = "Orange", col_white = "White",
+		hl_white = "White", hl_green = "Green", hl_blue = "Blue", hl_violet = "Violet", hl_red = "Red",
+		set_lang = "Language", set_alpha = "Menu transparency", set_balpha = "Button transparency",
+		set_key = "Menu key", set_keylisten = "Press a key... (Esc = cancel)", set_bubble = "Floating button",
+		set_fade = "Fade delay", set_rate = "Update rate", set_grav = "Gravity scale",
+		set_horiz = "Horizontal distance only", set_unload = "Unload script",
+		set_info = "Hide the window with the '-' button. Reopen it with the menu key or the floating PS button. Drag the title bar to move the window and the square in its bottom-right corner to resize it.",
+	},
+	ru = {
+		tab_ball = "Мяч", tab_player = "Игрок", tab_visuals = "Визуал", tab_settings = "Настройки",
+		ball_traj = "Траектория мяча", ball_dist = "Дистанция (studs)", ball_range = "Дальность прогноза",
+		ball_minspeed = "Мин. скорость удара", ball_hl = "Подсветка мяча", ball_hlbright = "Яркость подсветки",
+		ball_hlcolor = "Цвет подсветки", ball_pick = "Выбрать мяч (нажмите на него)", ball_auto = "Автоопределение мяча",
+		u_st = "%d st", u_sts = "%d st/с", u_s = "%.1f с", u_hz = "%d Гц",
+		st_ball = "Мяч", st_search = "поиск...", st_auto = "авто", st_manual = "вручную",
+		st_tap = "Коснитесь мяча в игре...", st_notball = "Это не мяч — коснитесь точнее",
+		pl_stam = "Медленная трата стамины", pl_stamr = "Замедление стамины", pl_flow = "Медленная трата Flow", pl_flowr = "Замедление Flow",
+		pl_stamname = "Имя стамины", pl_flowname = "Имя Flow", pl_ph = "имя1, имя2", pl_rescan = "Пересканировать значения",
+		pl_info = "Работает, только если игра хранит стамину/Flow как значения (или атрибуты), которые клиент может менять. Если написано «не найдено», введите настоящее имя объекта выше.",
+		dr_stamina = "Стамина", dr_flow = "Flow", dr_scanning = "поиск...",
+		dr_notfound = "не найдено (введите другое имя ниже)", dr_more = " +ещё %d",
+		vis_thick = "Толщина линии", vis_opacity = "Непрозрачность линии", vis_color = "Цвет линии",
+		vis_marker = "Маркер падения", vis_labelsize = "Размер надписи",
+		col_violet = "Фиолетовый", col_pink = "Розовый", col_cyan = "Голубой", col_lime = "Салатовый", col_orange = "Оранжевый", col_white = "Белый",
+		hl_white = "Белый", hl_green = "Зелёный", hl_blue = "Синий", hl_violet = "Фиолетовый", hl_red = "Красный",
+		set_lang = "Язык", set_alpha = "Прозрачность меню", set_balpha = "Прозрачность кнопок",
+		set_key = "Клавиша меню", set_keylisten = "Нажмите клавишу... (Esc — отмена)", set_bubble = "Плавающая кнопка",
+		set_fade = "Задержка исчезновения", set_rate = "Частота обновления", set_grav = "Множитель гравитации",
+		set_horiz = "Только горизонтальная дистанция", set_unload = "Выгрузить скрипт",
+		set_info = "Окно скрывается кнопкой «-». Открыть его снова можно клавишей меню или плавающей кнопкой PS. Перемещайте окно за заголовок, а размер меняйте квадратом в правом нижнем углу.",
+	},
+}
+local function T(k)
+	local t = STR[LANG]
+	return (t and t[k]) or STR.en[k] or k
+end
+local function L(k) return function() return T(k) end end
+
+local textBinds, langHooks = {}, {}
+local function bindText(inst, prop, fn)
+	textBinds[#textBinds + 1] = {inst, prop, fn}
+	inst[prop] = fn()
+end
+local function onLang(fn) langHooks[#langHooks + 1] = fn end
+local function refreshLang()
+	for _, b in ipairs(textBinds) do
+		pcall(function() b[1][b[2]] = b[3]() end)
+	end
+	for _, fn in ipairs(langHooks) do pcall(fn) end
+end
+
+local themed = {}
+local function tint(inst)
+	themed[#themed + 1] = inst
+	inst.BackgroundTransparency = S.btnAlpha
+end
+
 ---------------------------------------------------------------- helpers / state
 local alive = true
 local conns = {}
@@ -52,6 +136,7 @@ local samples, lastPos, lastT = {}, nil, nil
 local current, manualBall = nil, nil
 local pickMode, pickUntil = false, 0
 local candidates = {}
+local listening = false
 local statusLabel, Unload, setMenu, selectTab
 
 local function bind(signal, fn)
@@ -92,6 +177,12 @@ for i = 1, MAX_SEG do segs[i] = makePart("s", Vector3.new(0.3, 0.3, 1)) end
 local marker = makePart("m", Vector3.new(0.15, 3.4, 3.4))
 marker.Shape = Enum.PartType.Cylinder
 local anchor = makePart("a", Vector3.new(0.2, 0.2, 0.2))
+
+local hl = new("Highlight", {
+	Name = "H", Enabled = false, DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+	FillTransparency = 1, OutlineTransparency = 1,
+	FillColor = HL_COLORS[S.hlColor][2], OutlineColor = HL_COLORS[S.hlColor][2]:Lerp(Color3.new(1, 1, 1), 0.35),
+}, folder)
 
 local bb = new("BillboardGui", {
 	Name = "L", Adornee = anchor, AlwaysOnTop = true, Size = UDim2.fromOffset(170, 36),
@@ -170,9 +261,13 @@ local BAD_HINTS = {"goal", "net", "field", "pitch", "spawn", "zone", "stadium", 
 local function updateStatus()
 	if not statusLabel then return end
 	local txt
-	if pickMode then txt = "Tap the ball in the world..."
-	elseif current then txt = "Ball: " .. current.Name .. ((manualBall and current == manualBall) and " (manual)" or " (auto)")
-	else txt = "Ball: searching..." end
+	if pickMode then
+		txt = T("st_tap")
+	elseif current then
+		txt = T("st_ball") .. ": " .. current.Name .. " (" .. ((manualBall and current == manualBall) and T("st_manual") or T("st_auto")) .. ")"
+	else
+		txt = T("st_ball") .. ": " .. T("st_search")
+	end
 	if statusLabel.Text ~= txt then statusLabel.Text = txt end
 end
 
@@ -261,6 +356,55 @@ local function getBall(now)
 	end
 	if validBall(current) then return current end
 	return nil
+end
+
+---------------------------------------------------------------- ball highlight
+local hlShown = false
+local hlBall, hlTarget, hlNext = nil, nil, 0
+
+local function hlTargets()
+	local b = S.hlBright
+	return math.clamp(1 - b * 0.75, 0.05, 0.95), math.clamp(1 - b, 0, 0.9)
+end
+local function applyHighlightColor()
+	local col = HL_COLORS[S.hlColor][2]
+	hl.FillColor = col
+	hl.OutlineColor = col:Lerp(Color3.new(1, 1, 1), 0.35)
+end
+local function applyHighlightBrightness()
+	if hlShown then
+		local f, o = hlTargets()
+		tween(hl, 0.1, {FillTransparency = f, OutlineTransparency = o})
+	end
+end
+local function pickHlTarget(ball, now)
+	if ball == hlBall and now < hlNext then return hlTarget end
+	hlBall, hlNext = ball, now + 2
+	local t = ball
+	local m = ball.Parent
+	if m and m.ClassName == "Model" and not inCharacter(ball) then
+		local ok, size = pcall(function() return m:GetExtentsSize() end)
+		if ok and math.max(size.X, size.Y, size.Z) <= 14 then t = m end
+	end
+	hlTarget = t
+	return t
+end
+local function updateHighlight(ball, now)
+	if S.highlight and ball then
+		local target = pickHlTarget(ball, now)
+		if hl.Adornee ~= target then hl.Adornee = target end
+		if not hlShown then
+			hlShown = true
+			hl.Enabled = true
+			hl.FillTransparency, hl.OutlineTransparency = 1, 1
+			local f, o = hlTargets()
+			tween(hl, 0.3, {FillTransparency = f, OutlineTransparency = o})
+		end
+	elseif hlShown then
+		hlShown = false
+		tween(hl, 0.25, {FillTransparency = 1, OutlineTransparency = 1})
+		task.delay(0.27, function() if not hlShown then hl.Enabled = false end end)
+	end
 end
 
 ---------------------------------------------------------------- path math + drawing
@@ -429,12 +573,17 @@ local function resetSamples() samples, lastPos, lastT = {}, nil, nil end
 
 local function tick(dt)
 	ensureFolder()
+	local now = os.clock()
+	if not S.trajectory and not S.highlight and not hlShown then
+		if shot then cancelShot(true) end
+		return
+	end
+	local ball = getBall(now)
+	updateHighlight(ball, now)
 	if not S.trajectory then
 		if shot then cancelShot(true) end
 		return
 	end
-	local now = os.clock()
-	local ball = getBall(now)
 	if not ball then
 		if shot and shot.state == "flight" then cancelShot(false) end
 		resetSamples()
@@ -489,8 +638,8 @@ end
 
 ---------------------------------------------------------------- slow drain (stamina / flow)
 local DRAINS = {
-	stamina = {title = "Stamina", defaults = {"stamina", "stam"}, hints = {"stamina", "stam"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
-	flow = {title = "Flow", defaults = {"flow"}, hints = {"flow"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
+	stamina = {defaults = {"stamina", "stam"}, hints = {"stamina", "stam"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
+	flow = {defaults = {"flow"}, hints = {"flow"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
 }
 local DRAIN_BAD = {"max", "regen", "rate", "cost", "cooldown", "speed", "mult", "enabled", "bar", "gui", "text", "delay", "limit", "stamp"}
 
@@ -535,13 +684,13 @@ local function updateDrainStatus(kind)
 	if not d.statusLabel then return end
 	local txt
 	if d.scanning then
-		txt = "scanning..."
+		txt = T("dr_scanning")
 	elseif #d.targets == 0 then
-		txt = "not found (try another name below)"
+		txt = T("dr_notfound")
 	else
-		txt = describeTarget(d.targets[1]) .. (#d.targets > 1 and (" +" .. (#d.targets - 1) .. " more") or "")
+		txt = describeTarget(d.targets[1]) .. (#d.targets > 1 and string.format(T("dr_more"), #d.targets - 1) or "")
 	end
-	d.statusLabel.Text = d.title .. ": " .. txt
+	d.statusLabel.Text = T("dr_" .. kind) .. ": " .. txt
 end
 
 local function detachDrain(d)
@@ -709,6 +858,7 @@ local hideBtn = new("TextButton", {
 	TextSize = 20, TextColor3 = C.text,
 }, titleBar)
 corner(hideBtn, 7)
+tint(hideBtn)
 local hideScale = new("UIScale", {Scale = 1}, hideBtn)
 hoverFx(hideBtn, hideScale, C.element, C.elementHover)
 makeDraggable(titleBar, window)
@@ -723,36 +873,126 @@ local function applyTheme()
 	window.BackgroundTransparency = S.menuAlpha
 	titleBar.BackgroundTransparency = S.menuAlpha
 	sidebar.BackgroundTransparency = S.menuAlpha
+	for _, e in ipairs(themed) do e.BackgroundTransparency = S.btnAlpha end
 end
 
--- user card (avatar in a circle + real Roblox username)
+-- user card: Roblox avatar in a circle + real Roblox username
 local userCard = new("Frame", {Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, LayoutOrder = nextOrder()}, sidebar)
-local avatar = new("ImageLabel", {
+local avatarBack = new("Frame", {
 	AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(42, 42),
-	BackgroundColor3 = Color3.fromRGB(28, 28, 36), BorderSizePixel = 0, ScaleType = Enum.ScaleType.Crop,
-	Image = "rbxthumb://type=AvatarBust&id=" .. LocalPlayer.UserId .. "&w=150&h=150", ImageTransparency = 1,
+	BackgroundColor3 = Color3.fromRGB(28, 28, 36), BorderSizePixel = 0,
 }, userCard)
+corner(avatarBack, 21)
+new("UIStroke", {Color = C.accent, Thickness = 2}, avatarBack)
+local letter = new("TextLabel", {
+	Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = string.upper(string.sub(LocalPlayer.Name, 1, 1)),
+	Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = Color3.new(1, 1, 1),
+}, avatarBack)
+local avatar = new("ImageLabel", {
+	Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScaleType = Enum.ScaleType.Crop,
+	ImageTransparency = 1, Image = "",
+}, avatarBack)
 corner(avatar, 21)
-new("UIStroke", {Color = C.accent, Thickness = 2}, avatar)
 local nameLbl = new("TextLabel", {
 	BackgroundTransparency = 1, Position = UDim2.fromOffset(52, 0), Size = UDim2.new(1, -52, 1, 0), Text = LocalPlayer.Name,
 	Font = FONT_NAME, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left,
 }, userCard)
 new("UITextSizeConstraint", {MaxTextSize = 16, MinTextSize = 8}, nameLbl)
 new("Frame", {Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.line, BorderSizePixel = 0, LayoutOrder = nextOrder()}, sidebar)
-task.spawn(function()
+
+-- avatar loader (Roblox website thumbnails API -> local file -> image)
+local avatarShown, avatarUrl, avatarFile = false, nil, nil
+
+local function httpGetRaw(url)
+	local req = (syn and syn.request) or (http and http.request) or http_request or request
+	if req then
+		local ok, res = pcall(req, {Url = url, Method = "GET"})
+		if ok and type(res) == "table" and res.Body and (res.StatusCode == nil or res.StatusCode == 200) then return res.Body end
+	end
+	local ok, body = pcall(function() return game:HttpGet(url) end)
+	if ok then return body end
+	return nil
+end
+
+local function fetchAvatarUrl()
+	local api = "https://thumbnails.roblox.com/v1/users/avatar-bust?userIds=" .. LocalPlayer.UserId .. "&size=150x150&format=Png&isCircular=false"
+	local body = httpGetRaw(api)
+	if not body then return nil end
+	local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+	if not ok or type(data) ~= "table" or type(data.data) ~= "table" or not data.data[1] then return nil end
+	local entry = data.data[1]
+	if entry.state ~= "Completed" or not entry.imageUrl then return nil end
+	return entry.imageUrl
+end
+
+local function showAvatar()
+	avatarShown = true
+	tween(avatar, 0.35, {ImageTransparency = 0})
+	tween(letter, 0.3, {TextTransparency = 1})
+end
+
+local function showWhenLoaded()
 	local t0 = os.clock()
 	while alive and not avatar.IsLoaded and os.clock() - t0 < 4 do task.wait(0.1) end
-	if not alive then return end
-	if not avatar.IsLoaded then
-		local ok, url = pcall(function()
-			return (Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150))
-		end)
-		if ok and url then avatar.Image = url end
-		t0 = os.clock()
-		while alive and not avatar.IsLoaded and os.clock() - t0 < 4 do task.wait(0.1) end
+	if alive and avatar.IsLoaded then
+		showAvatar()
+		return true
 	end
-	if alive then tween(avatar, 0.35, {ImageTransparency = 0}) end
+	return false
+end
+
+local function applyAvatarFromWeb()
+	local url = fetchAvatarUrl()
+	if not url then return false end
+	if url == avatarUrl then return true end
+	local getAsset = getcustomasset or getsynasset
+	if not (writefile and getAsset) then return false end
+	local bytes = httpGetRaw(url)
+	if not bytes or #bytes < 100 then return false end
+	local fname = "ProjectSolar_avatar_" .. LocalPlayer.UserId .. "_" .. os.time() .. ".png"
+	if not pcall(writefile, fname, bytes) then return false end
+	local ok, asset = pcall(getAsset, fname)
+	if not ok or not asset then return false end
+	local old = avatarFile
+	avatarFile, avatarUrl = fname, url
+	avatar.Image = asset
+	avatar.ImageTransparency = 1
+	local loaded = showWhenLoaded()
+	if old and delfile then pcall(delfile, old) end
+	if not loaded then avatarUrl = nil end
+	return loaded
+end
+
+local function loadAvatarInitial()
+	for _ = 1, 3 do
+		if not alive then return end
+		local ok, res = pcall(applyAvatarFromWeb)
+		if ok and res then return end
+		task.wait(1.5)
+	end
+	if not alive or avatarShown then return end
+	avatar.Image = "rbxthumb://type=AvatarBust&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
+	if showWhenLoaded() then return end
+	local ok, url = pcall(function()
+		return (Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150))
+	end)
+	if ok and url then
+		avatar.Image = url
+		showWhenLoaded()
+	end
+end
+
+task.spawn(function()
+	loadAvatarInitial()
+	while alive do
+		task.wait(45)
+		if alive then pcall(applyAvatarFromWeb) end
+	end
+end)
+bind(LocalPlayer.CharacterAppearanceLoaded, function()
+	task.delay(3, function()
+		if alive then pcall(applyAvatarFromWeb) end
+	end)
 end)
 
 -- resize grip (bottom-right corner)
@@ -813,13 +1053,15 @@ function selectTab(name)
 	tween(g, 0.22, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)})
 end
 
-local function addTab(name)
+local function addTab(id)
 	local btn = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = name,
+		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = "",
 		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
 		LayoutOrder = nextOrder(),
 	}, sidebar)
 	corner(btn, 8)
+	tint(btn)
+	bindText(btn, "Text", L("tab_" .. id:lower()))
 	new("UIPadding", {PaddingLeft = UDim.new(0, 14)}, btn)
 	local stroke = new("UIStroke", {Color = C.accent, Thickness = 2, Transparency = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, btn)
 	local group = new("CanvasGroup", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, GroupTransparency = 1}, pageHolder)
@@ -830,21 +1072,23 @@ local function addTab(name)
 	}, group)
 	new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
 	new("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 30)}, scroll)
-	tabs[name] = {btn = btn, group = group, stroke = stroke}
-	bind(btn.Activated, function() selectTab(name) end)
-	bind(btn.MouseEnter, function() if currentTab ~= name then tween(btn, 0.12, {BackgroundColor3 = C.elementHover}) end end)
-	bind(btn.MouseLeave, function() if currentTab ~= name then tween(btn, 0.12, {BackgroundColor3 = C.element}) end end)
+	tabs[id] = {btn = btn, group = group, stroke = stroke}
+	bind(btn.Activated, function() selectTab(id) end)
+	bind(btn.MouseEnter, function() if currentTab ~= id then tween(btn, 0.12, {BackgroundColor3 = C.elementHover}) end end)
+	bind(btn.MouseLeave, function() if currentTab ~= id then tween(btn, 0.12, {BackgroundColor3 = C.element}) end end)
 	return scroll
 end
 
-local function addToggle(page, text, initial, callback)
+local function addToggle(page, labelFn, initial, callback)
 	local row = new("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.element, AutoButtonColor = false, Text = "", LayoutOrder = nextOrder()}, page)
 	corner(row, 8)
+	tint(row)
 	local sc = new("UIScale", {Scale = 1}, row)
-	new("TextLabel", {
-		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -80, 1, 0),
-		Text = text, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text,
+	local lbl = new("TextLabel", {
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -80, 1, 0), Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text,
 	}, row)
+	bindText(lbl, "Text", labelFn)
 	local state = initial
 	local track = new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(46, 24),
@@ -865,13 +1109,15 @@ local function addToggle(page, text, initial, callback)
 	end)
 end
 
-local function addSlider(page, text, min, max, step, initial, fmt, callback)
+local function addSlider(page, labelFn, min, max, step, initial, fmt, callback)
 	local row = new("Frame", {Size = UDim2.new(1, 0, 0, 54), BackgroundColor3 = C.element, LayoutOrder = nextOrder()}, page)
 	corner(row, 8)
-	new("TextLabel", {
-		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -110, 0, 18), Text = text,
+	tint(row)
+	local lbl = new("TextLabel", {
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -110, 0, 18), Text = "",
 		Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
 	}, row)
+	bindText(lbl, "Text", labelFn)
 	local valLbl = new("TextLabel", {
 		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 6), Size = UDim2.fromOffset(90, 18),
 		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.accent2, TextXAlignment = Enum.TextXAlignment.Right, Text = "",
@@ -895,6 +1141,7 @@ local function addSlider(page, text, min, max, step, initial, fmt, callback)
 		valLbl.Text = fmt(value)
 	end
 	render()
+	onLang(render)
 	local function fromX(x)
 		local a = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
 		local v = math.clamp(math.floor((min + a * (max - min)) / step + 0.5) * step, min, max)
@@ -925,46 +1172,109 @@ local function addSlider(page, text, min, max, step, initial, fmt, callback)
 	end)
 end
 
-local function addButton(page, text, callback, base)
+local function addButton(page, textFn, callback, base)
 	base = base or C.element
 	local light = (base == C.element)
 	local hover = light and C.elementHover or base:Lerp(Color3.new(1, 1, 1), 0.18)
 	local b = new("TextButton", {
-		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = base, AutoButtonColor = false, Text = text,
+		Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = base, AutoButtonColor = false, Text = "",
 		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = light and C.text or Color3.new(1, 1, 1),
 		LayoutOrder = nextOrder(),
 	}, page)
 	corner(b, 8)
+	if light then tint(b) end
+	bindText(b, "Text", textFn)
 	local sc = new("UIScale", {Scale = 1}, b)
 	hoverFx(b, sc, base, hover)
 	bind(b.Activated, function() callback(b) end)
 	return b
 end
 
-local function addInfo(page, text)
-	return new("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = text,
+local function addInfo(page, textFn)
+	local lbl = new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = "",
 		TextWrapped = true, Font = Enum.Font.Gotham, TextSize = 13, TextColor3 = C.sub,
 		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = nextOrder(),
 	}, page)
+	if textFn then bindText(lbl, "Text", textFn) end
+	return lbl
 end
 
-local function addTextInput(page, text, default, callback)
+local function addTextInput(page, labelFn, default, phFn, callback)
 	local row = new("Frame", {Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = C.element, LayoutOrder = nextOrder()}, page)
 	corner(row, 8)
-	new("TextLabel", {
-		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0.4, -14, 1, 0), Text = text,
+	tint(row)
+	local lbl = new("TextLabel", {
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0.4, -14, 1, 0), Text = "",
 		Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
 	}, row)
+	bindText(lbl, "Text", labelFn)
 	local box = new("TextBox", {
 		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0.6, -12, 0, 28),
-		BackgroundColor3 = Color3.fromRGB(216, 212, 236), Text = default, PlaceholderText = "name1, name2", ClearTextOnFocus = false,
+		BackgroundColor3 = Color3.fromRGB(216, 212, 236), Text = default, PlaceholderText = "", ClearTextOnFocus = false,
 		Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = C.text, PlaceholderColor3 = Color3.fromRGB(120, 114, 150),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 	}, row)
 	corner(box, 6)
+	bindText(box, "PlaceholderText", phFn)
 	bind(box.FocusLost, function() callback(box.Text) end)
 	return box
+end
+
+local function addDropdown(page, labelFn, count, nameFn, getIndex, onPick)
+	local ROW_H, OPT_H, GAP = 38, 32, 4
+	local fullH = ROW_H + GAP + count * (OPT_H + GAP)
+	local container = new("Frame", {Size = UDim2.new(1, 0, 0, ROW_H), BackgroundTransparency = 1, ClipsDescendants = true, LayoutOrder = nextOrder()}, page)
+	local row = new("TextButton", {Size = UDim2.new(1, 0, 0, ROW_H), BackgroundColor3 = C.element, AutoButtonColor = false, Text = ""}, container)
+	corner(row, 8)
+	tint(row)
+	local sc = new("UIScale", {Scale = 1}, row)
+	hoverFx(row, sc, C.element, C.elementHover)
+	local lbl = new("TextLabel", {
+		BackgroundTransparency = 1, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0.5, -14, 1, 0), Text = "",
+		Font = Enum.Font.GothamMedium, TextSize = 14, TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+	bindText(lbl, "Text", labelFn)
+	local cur = new("TextLabel", {
+		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 0), Size = UDim2.new(0.5, -14, 1, 0),
+		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = C.accent2, TextXAlignment = Enum.TextXAlignment.Right, Text = "",
+	}, row)
+	local open = false
+	local opts = {}
+	local function refresh()
+		cur.Text = nameFn(getIndex()) .. (open and " «" or " »")
+		for i, b in ipairs(opts) do
+			local sel = (i == getIndex())
+			b.Text = nameFn(i)
+			b.TextColor3 = sel and C.accent2 or C.text
+			b.Font = sel and Enum.Font.GothamBold or Enum.Font.GothamMedium
+		end
+	end
+	for i = 1, count do
+		local b = new("TextButton", {
+			Position = UDim2.fromOffset(0, ROW_H + GAP + (i - 1) * (OPT_H + GAP)), Size = UDim2.new(1, 0, 0, OPT_H),
+			BackgroundColor3 = C.element, AutoButtonColor = false, Text = "", Font = Enum.Font.GothamMedium,
+			TextSize = 14, TextColor3 = C.text,
+		}, container)
+		corner(b, 8)
+		tint(b)
+		local bsc = new("UIScale", {Scale = 1}, b)
+		hoverFx(b, bsc, C.element, C.elementHover)
+		bind(b.Activated, function()
+			onPick(i)
+			open = false
+			tween(container, 0.2, {Size = UDim2.new(1, 0, 0, ROW_H)})
+			refresh()
+		end)
+		opts[i] = b
+	end
+	bind(row.Activated, function()
+		open = not open
+		tween(container, 0.22, {Size = UDim2.new(1, 0, 0, open and fullH or ROW_H)})
+		refresh()
+	end)
+	onLang(refresh)
+	refresh()
 end
 
 ---------------------------------------------------------------- bubble + menu open/close
@@ -1013,12 +1323,15 @@ local playerPage = addTab("Player")
 local visPage = addTab("Visuals")
 local setPage = addTab("Settings")
 
+local function stFmt(key) return function(v) return string.format(T(key), v) end end
+local function pct(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
+
 -- Ball
-addToggle(ballPage, "Ball Trajectory", S.trajectory, function(v)
+addToggle(ballPage, L("ball_traj"), S.trajectory, function(v)
 	S.trajectory = v
 	if not v then cancelShot(true) end
 end)
-addToggle(ballPage, "Distance (studs)", S.distance, function(v)
+addToggle(ballPage, L("ball_dist"), S.distance, function(v)
 	S.distance = v
 	if not v then
 		hideLabel()
@@ -1027,17 +1340,25 @@ addToggle(ballPage, "Distance (studs)", S.distance, function(v)
 		showLabel(distText(shot))
 	end
 end)
-addSlider(ballPage, "Prediction range", 40, 800, 10, S.range, function(v) return string.format("%d st", v) end, function(v) S.range = v end)
-addSlider(ballPage, "Min kick speed", 10, 100, 1, S.minSpeed, function(v) return string.format("%d st/s", v) end, function(v) S.minSpeed = v end)
-statusLabel = addInfo(ballPage, "Ball: searching...")
+addSlider(ballPage, L("ball_range"), 40, 800, 10, S.range, stFmt("u_st"), function(v) S.range = v end)
+addSlider(ballPage, L("ball_minspeed"), 10, 100, 1, S.minSpeed, stFmt("u_sts"), function(v) S.minSpeed = v end)
+addToggle(ballPage, L("ball_hl"), S.highlight, function(v) S.highlight = v end)
+addSlider(ballPage, L("ball_hlbright"), 0.1, 1, 0.05, S.hlBright, pct, function(v) S.hlBright = v; applyHighlightBrightness() end)
+addDropdown(ballPage, L("ball_hlcolor"), #HL_COLORS,
+	function(i) return T("hl_" .. HL_COLORS[i][1]) end,
+	function() return S.hlColor end,
+	function(i) S.hlColor = i; applyHighlightColor() end)
+statusLabel = addInfo(ballPage, nil)
 statusLabel.TextColor3 = C.accentLight
 statusLabel.Font = Enum.Font.GothamMedium
-addButton(ballPage, "Pick ball (tap it)", function()
+onLang(updateStatus)
+updateStatus()
+addButton(ballPage, L("ball_pick"), function()
 	pickMode = true
 	pickUntil = os.clock() + 12
 	updateStatus()
 end)
-addButton(ballPage, "Auto-detect ball", function()
+addButton(ballPage, L("ball_auto"), function()
 	manualBall = nil
 	pickMode = false
 	scan()
@@ -1046,59 +1367,70 @@ addButton(ballPage, "Auto-detect ball", function()
 end)
 
 -- Player (slow drain)
-addToggle(playerPage, "Slow stamina drain", DRAINS.stamina.on, function(v) DRAINS.stamina.on = v end)
-addSlider(playerPage, "Stamina slowdown", 1.1, 4, 0.1, DRAINS.stamina.ratio, function(v) return string.format("x%.1f", v) end, function(v) DRAINS.stamina.ratio = v end)
-addToggle(playerPage, "Slow Flow drain", DRAINS.flow.on, function(v) DRAINS.flow.on = v end)
-addSlider(playerPage, "Flow slowdown", 1.1, 4, 0.1, DRAINS.flow.ratio, function(v) return string.format("x%.1f", v) end, function(v) DRAINS.flow.ratio = v end)
+local function ratioFmt(v) return string.format("x%.1f", v) end
+addToggle(playerPage, L("pl_stam"), DRAINS.stamina.on, function(v) DRAINS.stamina.on = v end)
+addSlider(playerPage, L("pl_stamr"), 1.1, 4, 0.1, DRAINS.stamina.ratio, ratioFmt, function(v) DRAINS.stamina.ratio = v end)
+addToggle(playerPage, L("pl_flow"), DRAINS.flow.on, function(v) DRAINS.flow.on = v end)
+addSlider(playerPage, L("pl_flowr"), 1.1, 4, 0.1, DRAINS.flow.ratio, ratioFmt, function(v) DRAINS.flow.ratio = v end)
 for _, kind in ipairs({"stamina", "flow"}) do
 	local d = DRAINS[kind]
-	d.statusLabel = addInfo(playerPage, d.title .. ": not scanned")
+	d.statusLabel = addInfo(playerPage, nil)
 	d.statusLabel.TextColor3 = C.accentLight
 	d.statusLabel.Font = Enum.Font.GothamMedium
+	onLang(function() updateDrainStatus(kind) end)
+	updateDrainStatus(kind)
 end
-addTextInput(playerPage, "Stamina name", "stamina", function(txt)
+addTextInput(playerPage, L("pl_stamname"), "stamina", L("pl_ph"), function(txt)
 	DRAINS.stamina.hints = parseHints(txt, DRAINS.stamina.defaults)
 	scanDrain("stamina")
 end)
-addTextInput(playerPage, "Flow name", "flow", function(txt)
+addTextInput(playerPage, L("pl_flowname"), "flow", L("pl_ph"), function(txt)
 	DRAINS.flow.hints = parseHints(txt, DRAINS.flow.defaults)
 	scanDrain("flow")
 end)
-addButton(playerPage, "Rescan values", function()
+addButton(playerPage, L("pl_rescan"), function()
 	scanDrain("stamina")
 	scanDrain("flow")
 end)
-addInfo(playerPage, "Works only if the game keeps stamina/Flow as values (or attributes) the client can change. If it says 'not found', type the real object name above.")
+addInfo(playerPage, L("pl_info"))
 
 -- Visuals
-addSlider(visPage, "Line thickness", 0.1, 1.5, 0.05, S.thickness, function(v) return string.format("%.2f", v) end, function(v) S.thickness = v; applyStyle() end)
-addSlider(visPage, "Line opacity", 0.2, 1, 0.05, S.opacity, function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end, function(v) S.opacity = v; applyTransparency() end)
-addButton(visPage, "Color: " .. COLORS[S.colorIndex][1], function(b)
+addSlider(visPage, L("vis_thick"), 0.1, 1.5, 0.05, S.thickness, function(v) return string.format("%.2f", v) end, function(v) S.thickness = v; applyStyle() end)
+addSlider(visPage, L("vis_opacity"), 0.2, 1, 0.05, S.opacity, pct, function(v) S.opacity = v; applyTransparency() end)
+local function lineColorText() return T("vis_color") .. ": " .. T("col_" .. COLORS[S.colorIndex][1]) end
+addButton(visPage, lineColorText, function(b)
 	S.colorIndex = S.colorIndex % #COLORS + 1
-	b.Text = "Color: " .. COLORS[S.colorIndex][1]
+	b.Text = lineColorText()
 	applyStyle()
 end)
-addToggle(visPage, "Landing marker", S.marker, function(v) S.marker = v; applyTransparency() end)
-addSlider(visPage, "Label size", 14, 32, 1, S.labelSize, function(v) return string.format("%d", v) end, function(v) S.labelSize = v; applyStyle() end)
+addToggle(visPage, L("vis_marker"), S.marker, function(v) S.marker = v; applyTransparency() end)
+addSlider(visPage, L("vis_labelsize"), 14, 32, 1, S.labelSize, function(v) return string.format("%d", v) end, function(v) S.labelSize = v; applyStyle() end)
 
 -- Settings
-addSlider(setPage, "Menu transparency", 0, 0.7, 0.05, S.menuAlpha, function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end, function(v) S.menuAlpha = v; applyTheme() end)
-local keyBtn
-local listening = false
-keyBtn = addButton(setPage, "Menu key: " .. S.menuKey.Name, function()
+addDropdown(setPage, L("set_lang"), 2,
+	function(i) return i == 1 and "English" or "Русский" end,
+	function() return LANG == "en" and 1 or 2 end,
+	function(i) LANG = (i == 1) and "en" or "ru"; refreshLang() end)
+addSlider(setPage, L("set_alpha"), 0, 0.7, 0.05, S.menuAlpha, pct, function(v) S.menuAlpha = v; applyTheme() end)
+addSlider(setPage, L("set_balpha"), 0, 0.7, 0.05, S.btnAlpha, pct, function(v) S.btnAlpha = v; applyTheme() end)
+local function keyText()
+	if listening then return T("set_keylisten") end
+	return T("set_key") .. ": " .. S.menuKey.Name
+end
+local keyBtn = addButton(setPage, keyText, function(b)
 	listening = true
-	keyBtn.Text = "Press a key... (Esc = cancel)"
+	b.Text = keyText()
 end)
-addToggle(setPage, "Floating button", S.bubble, function(v) S.bubble = v; refreshBubble() end)
-addSlider(setPage, "Fade delay", 1, 10, 0.5, S.fadeDelay, function(v) return string.format("%.1f s", v) end, function(v) S.fadeDelay = v end)
-addSlider(setPage, "Update rate", 15, 60, 5, S.updateRate, function(v) return string.format("%d Hz", v) end, function(v) S.updateRate = v end)
-addSlider(setPage, "Gravity scale", 0.5, 1.5, 0.05, S.gravityScale, function(v) return string.format("%.2f", v) end, function(v) S.gravityScale = v end)
-addToggle(setPage, "Horizontal distance only", S.horizontal, function(v)
+addToggle(setPage, L("set_bubble"), S.bubble, function(v) S.bubble = v; refreshBubble() end)
+addSlider(setPage, L("set_fade"), 1, 10, 0.5, S.fadeDelay, stFmt("u_s"), function(v) S.fadeDelay = v end)
+addSlider(setPage, L("set_rate"), 15, 60, 5, S.updateRate, stFmt("u_hz"), function(v) S.updateRate = v end)
+addSlider(setPage, L("set_grav"), 0.5, 1.5, 0.05, S.gravityScale, function(v) return string.format("%.2f", v) end, function(v) S.gravityScale = v end)
+addToggle(setPage, L("set_horiz"), S.horizontal, function(v)
 	S.horizontal = v
 	if shot and shot.state == "landed" and S.distance and labelShown then showLabel(distText(shot)) end
 end)
-addInfo(setPage, "Hide the window with the '-' button. Reopen it with the menu key or the floating PS button. Drag the title bar to move the window and the square in its bottom-right corner to resize it.")
-addButton(setPage, "Unload script", function() Unload() end, C.danger)
+addInfo(setPage, L("set_info"))
+addButton(setPage, L("set_unload"), function() Unload() end, C.danger)
 
 ---------------------------------------------------------------- input
 local function maxDim(p) local s = p.Size return math.max(s.X, s.Y, s.Z) end
@@ -1137,7 +1469,7 @@ local function tryPick(input)
 		manualBall, current, pickMode = target, target, false
 		updateStatus()
 	else
-		statusLabel.Text = "That's not the ball - tap closer"
+		statusLabel.Text = T("st_notball")
 	end
 end
 
@@ -1146,7 +1478,7 @@ bind(UserInputService.InputBegan, function(input, gpe)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			if input.KeyCode ~= Enum.KeyCode.Escape then S.menuKey = input.KeyCode end
 			listening = false
-			keyBtn.Text = "Menu key: " .. S.menuKey.Name
+			keyBtn.Text = keyText()
 		end
 		return
 	end
@@ -1214,6 +1546,7 @@ function Unload()
 	for _, d in pairs(DRAINS) do detachDrain(d) end
 	pcall(function() folder:Destroy() end)
 	pcall(function() gui:Destroy() end)
+	if avatarFile and delfile then pcall(delfile, avatarFile) end
 	candidates = {}
 	if env.__BLR_TRAJ and env.__BLR_TRAJ.Unload == Unload then env.__BLR_TRAJ = nil end
 end
