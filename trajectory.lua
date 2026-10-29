@@ -1,4 +1,4 @@
---[[ Project Solar | Blue Lock: Rivals - Trajectory, Highlight, Slow drain | black/white theme, EN/RU ]]
+--[[ Project Solar | Blue Lock: Rivals - Trajectory, Highlight, Slow drain, No cutscenes | black/white theme, EN/RU ]]
 local env = (getgenv and getgenv()) or _G
 if type(env.__BLR_TRAJ) == "table" and type(env.__BLR_TRAJ.Unload) == "function" then
 	pcall(env.__BLR_TRAJ.Unload)
@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
+local ContextActionService = game:GetService("ContextActionService")
 local LocalPlayer = Players.LocalPlayer
 
 ---------------------------------------------------------------- settings
@@ -21,6 +22,7 @@ local S = {
 	labelSize = 20, gravityScale = 1, fadeDelay = 3, updateRate = 30,
 	bubble = true, menuKey = Enum.KeyCode.RightShift, menuAlpha = 0.2, btnAlpha = 0.15,
 	highlight = true, hlBright = 0.7, hlColor = 4,
+	noCutscene = false, blockRemotes = true, cutLen = 6,
 }
 local COLORS = {
 	{"violet", Color3.fromRGB(176, 120, 255)},
@@ -61,9 +63,14 @@ local STR = {
 		ball_traj = "Ball Trajectory", ball_dist = "Distance (studs)", ball_range = "Prediction range",
 		ball_minspeed = "Min kick speed", ball_hl = "Ball highlight", ball_hlbright = "Highlight brightness",
 		ball_hlcolor = "Highlight color", ball_pick = "Pick ball (tap it)", ball_auto = "Auto-detect ball",
-		u_st = "%d st", u_sts = "%d st/s", u_s = "%.1f s", u_hz = "%d Hz",
+		u_st = "%d st", u_sts = "%d st/s", u_s = "%.1f s", u_s0 = "%d s", u_hz = "%d Hz",
 		st_ball = "Ball", st_search = "searching...", st_auto = "auto", st_manual = "manual",
 		st_tap = "Tap the ball in the world...", st_notball = "That's not the ball - tap closer",
+		cs_main = "No AWK cutscenes", cs_block = "Block cutscene events", cs_len = "Cutscene length",
+		cs_names = "Cutscene names", cs_st_off = "Cutscenes: off", cs_st_idle = "Cutscenes: waiting",
+		cs_st_active = "Cutscene skipped - you can move", cs_st_blocked = "events blocked: %d",
+		cs_st_nosupport = "event blocking is not supported here",
+		cs_info = "Restores your camera and movement when a cutscene starts. If one still plays, add its name (for example awk) to 'Cutscene names'. Works only for locks done on your side; server-side freezes cannot be removed. Keep it off in menus and the lobby.",
 		pl_stam = "Slow stamina drain", pl_stamr = "Stamina slowdown", pl_flow = "Slow Flow drain", pl_flowr = "Flow slowdown",
 		pl_stamname = "Stamina name", pl_flowname = "Flow name", pl_ph = "name1, name2", pl_rescan = "Rescan values",
 		pl_info = "Works only if the game keeps stamina/Flow as values (or attributes) the client can change. If it says 'not found', type the real object name above.",
@@ -84,9 +91,14 @@ local STR = {
 		ball_traj = "Траектория мяча", ball_dist = "Дистанция (studs)", ball_range = "Дальность прогноза",
 		ball_minspeed = "Мин. скорость удара", ball_hl = "Подсветка мяча", ball_hlbright = "Яркость подсветки",
 		ball_hlcolor = "Цвет подсветки", ball_pick = "Выбрать мяч (нажмите на него)", ball_auto = "Автоопределение мяча",
-		u_st = "%d st", u_sts = "%d st/с", u_s = "%.1f с", u_hz = "%d Гц",
+		u_st = "%d st", u_sts = "%d st/с", u_s = "%.1f с", u_s0 = "%d с", u_hz = "%d Гц",
 		st_ball = "Мяч", st_search = "поиск...", st_auto = "авто", st_manual = "вручную",
 		st_tap = "Коснитесь мяча в игре...", st_notball = "Это не мяч — коснитесь точнее",
+		cs_main = "Без AWK-катсцен", cs_block = "Блокировать события катсцен", cs_len = "Длительность катсцены",
+		cs_names = "Имена катсцен", cs_st_off = "Катсцены: выключено", cs_st_idle = "Катсцены: ожидание",
+		cs_st_active = "Катсцена пропущена — вы можете двигаться", cs_st_blocked = "заблокировано событий: %d",
+		cs_st_nosupport = "блокировка событий здесь не поддерживается",
+		cs_info = "Возвращает вам камеру и управление, когда начинается катсцена. Если катсцена всё равно проигрывается, добавьте её имя (например, awk) в «Имена катсцен». Работает только для блокировок на стороне клиента; серверную заморозку убрать нельзя. В меню и лобби лучше держать выключенным.",
 		pl_stam = "Медленная трата стамины", pl_stamr = "Замедление стамины", pl_flow = "Медленная трата Flow", pl_flowr = "Замедление Flow",
 		pl_stamname = "Имя стамины", pl_flowname = "Имя Flow", pl_ph = "имя1, имя2", pl_rescan = "Пересканировать значения",
 		pl_info = "Работает, только если игра хранит стамину/Flow как значения (или атрибуты), которые клиент может менять. Если написано «не найдено», введите настоящее имя объекта выше.",
@@ -788,6 +800,219 @@ local gui = new("ScreenGui", {
 	IgnoreGuiInset = true, DisplayOrder = 999,
 }, guiParent())
 
+---------------------------------------------------------------- cutscene guard (camera / movement / events)
+local CUT = {
+	hints = {"cutscene", "cinematic"}, remotes = {}, blocked = {}, blockedCount = 0,
+	unsupported = false, activeUntil = 0, active = false,
+}
+local cutStatusLabel
+local capCF, capOk, normalFov = nil, false, 70
+local normalMove = {walk = 16, jp = 50, jh = 7.2}
+local controlsObj, nextCtl, nextGui = nil, 0, 0
+local hiddenGuis = {}
+
+local function updateCutStatus()
+	if not cutStatusLabel then return end
+	local txt
+	if not S.noCutscene then
+		txt = T("cs_st_off")
+	else
+		txt = CUT.active and T("cs_st_active") or T("cs_st_idle")
+		if S.blockRemotes then
+			if CUT.unsupported then
+				txt = txt .. "; " .. T("cs_st_nosupport")
+			else
+				txt = txt .. "; " .. string.format(T("cs_st_blocked"), CUT.blockedCount)
+			end
+		end
+	end
+	if cutStatusLabel.Text ~= txt then cutStatusLabel.Text = txt end
+end
+
+local function matchesHints(name, hints)
+	local l = name:lower()
+	for _, h in ipairs(hints) do
+		if l:find(h, 1, true) then return true end
+	end
+	return false
+end
+
+local function rebuildRemotes()
+	CUT.remotes = {}
+	local ok = pcall(function()
+		for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
+			if inst:IsA("RemoteEvent") and matchesHints(inst.Name, CUT.hints) then
+				CUT.remotes[#CUT.remotes + 1] = inst
+			end
+		end
+	end)
+	return ok
+end
+
+local function blockPass()
+	if not getconnections then
+		CUT.unsupported = true
+		return
+	end
+	local n = 0
+	for _, r in ipairs(CUT.remotes) do
+		local ok, list = pcall(getconnections, r.OnClientEvent)
+		if ok and type(list) == "table" then
+			for _, c in ipairs(list) do pcall(function() c:Disable() end) end
+			CUT.blocked[r] = true
+			n += 1
+		end
+	end
+	CUT.blockedCount = n
+end
+
+local function unblockAll()
+	if getconnections then
+		for r in pairs(CUT.blocked) do
+			pcall(function()
+				for _, c in ipairs(getconnections(r.OnClientEvent)) do c:Enable() end
+			end)
+		end
+	end
+	CUT.blocked = {}
+	CUT.blockedCount = 0
+end
+
+local function hideCutsceneGuis(now)
+	if now < nextGui then return end
+	nextGui = now + 0.3
+	local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if not pg then return end
+	for _, g in ipairs(pg:GetChildren()) do
+		if g:IsA("ScreenGui") and g ~= gui and g.Enabled and matchesHints(g.Name, CUT.hints) then
+			hiddenGuis[g] = true
+			g.Enabled = false
+		end
+	end
+end
+
+local function restoreCutsceneGuis()
+	for g in pairs(hiddenGuis) do pcall(function() g.Enabled = true end) end
+	hiddenGuis = {}
+end
+
+local function getControls()
+	if controlsObj then return controlsObj end
+	local ps = LocalPlayer:FindFirstChild("PlayerScripts")
+	local pm = ps and ps:FindFirstChild("PlayerModule")
+	if pm then
+		local ok, mod = pcall(require, pm)
+		if ok and mod then
+			local ok2, c = pcall(function() return mod:GetControls() end)
+			if ok2 then controlsObj = c end
+		end
+	end
+	return controlsObj
+end
+
+local function recordMovement(hum, cam)
+	if hum.WalkSpeed > 0 then normalMove.walk = hum.WalkSpeed end
+	if hum.UseJumpPower then
+		if hum.JumpPower > 0 then normalMove.jp = hum.JumpPower end
+	elseif hum.JumpHeight > 0 then
+		normalMove.jh = hum.JumpHeight
+	end
+	normalFov = cam.FieldOfView
+end
+
+local function fixMovement(hum, char, now)
+	if hum.WalkSpeed < normalMove.walk * 0.5 then hum.WalkSpeed = normalMove.walk end
+	if hum.UseJumpPower then
+		if hum.JumpPower <= 0 then hum.JumpPower = normalMove.jp end
+	elseif hum.JumpHeight <= 0 then
+		hum.JumpHeight = normalMove.jh
+	end
+	if hum.PlatformStand then hum.PlatformStand = false end
+	if not hum.AutoRotate then hum.AutoRotate = true end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp and hrp.Anchored then hrp.Anchored = false end
+	if now >= nextCtl then
+		nextCtl = now + 0.4
+		local c = getControls()
+		if c then pcall(function() c:Enable() end) end
+		pcall(function()
+			for name in pairs(ContextActionService:GetAllBoundActionInfo()) do
+				local l = name:lower()
+				if l:find("freeze", 1, true) or l:find("cutscene", 1, true) then
+					ContextActionService:UnbindAction(name)
+				end
+			end
+		end)
+	end
+end
+
+local function guardStep()
+	if not alive or not S.noCutscene then return end
+	local cam = Workspace.CurrentCamera
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not cam or not hum or hum.Health <= 0 then return end
+	local now = os.clock()
+	local sub = cam.CameraSubject
+	local subBad = sub ~= nil and sub ~= hum and not (sub:IsA("BasePart") and sub:IsDescendantOf(char))
+	local abnormal = cam.CameraType == Enum.CameraType.Scriptable or subBad
+	if abnormal then
+		CUT.activeUntil = math.max(CUT.activeUntil, now + S.cutLen)
+		cam.CameraType = Enum.CameraType.Custom
+		cam.CameraSubject = hum
+		cam.FieldOfView = normalFov
+	end
+	local inWindow = now < CUT.activeUntil
+	if inWindow then
+		if not abnormal and capOk then
+			local cf = cam.CFrame
+			if (cf.Position - capCF.Position).Magnitude > 0.5 or cf.LookVector:Dot(capCF.LookVector) < 0.999 then
+				cam.CFrame = capCF
+			end
+			if math.abs(cam.FieldOfView - normalFov) > 0.1 then cam.FieldOfView = normalFov end
+		end
+		fixMovement(hum, char, now)
+		hideCutsceneGuis(now)
+	else
+		recordMovement(hum, cam)
+	end
+	if inWindow ~= CUT.active then
+		CUT.active = inWindow
+		if not inWindow then restoreCutsceneGuis() end
+		updateCutStatus()
+	end
+end
+
+pcall(function() RunService:UnbindFromRenderStep("PS_CamCapture") end)
+pcall(function() RunService:UnbindFromRenderStep("PS_CamGuard") end)
+RunService:BindToRenderStep("PS_CamCapture", Enum.RenderPriority.Camera.Value + 1, function()
+	capOk = false
+	if not S.noCutscene then return end
+	local cam = Workspace.CurrentCamera
+	if cam and cam.CameraType == Enum.CameraType.Custom then
+		capCF, capOk = cam.CFrame, true
+	end
+end)
+RunService:BindToRenderStep("PS_CamGuard", Enum.RenderPriority.Last.Value, function()
+	pcall(guardStep)
+end)
+
+bind(ReplicatedStorage.DescendantAdded, function(inst)
+	if inst:IsA("RemoteEvent") and matchesHints(inst.Name, CUT.hints) then
+		CUT.remotes[#CUT.remotes + 1] = inst
+	end
+end)
+task.spawn(function()
+	while alive do
+		task.wait(2)
+		if alive and S.noCutscene and S.blockRemotes then
+			blockPass()
+			updateCutStatus()
+		end
+	end
+end)
+
+---------------------------------------------------------------- UI helpers (continued)
 local order = 0
 local function nextOrder() order += 1 return order end
 local function isPress(i)
@@ -1366,7 +1591,50 @@ addButton(ballPage, L("ball_auto"), function()
 	updateStatus()
 end)
 
--- Player (slow drain)
+-- Player: cutscenes
+addToggle(playerPage, L("cs_main"), S.noCutscene, function(v)
+	S.noCutscene = v
+	if v then
+		if S.blockRemotes then
+			rebuildRemotes()
+			blockPass()
+		end
+	else
+		unblockAll()
+		restoreCutsceneGuis()
+		CUT.activeUntil = 0
+		CUT.active = false
+	end
+	updateCutStatus()
+end)
+addToggle(playerPage, L("cs_block"), S.blockRemotes, function(v)
+	S.blockRemotes = v
+	if v and S.noCutscene then
+		rebuildRemotes()
+		blockPass()
+	else
+		unblockAll()
+	end
+	updateCutStatus()
+end)
+addSlider(playerPage, L("cs_len"), 2, 15, 1, S.cutLen, stFmt("u_s0"), function(v) S.cutLen = v end)
+addTextInput(playerPage, L("cs_names"), "cutscene, cinematic", L("pl_ph"), function(txt)
+	CUT.hints = parseHints(txt, {"cutscene", "cinematic"})
+	rebuildRemotes()
+	if S.noCutscene and S.blockRemotes then
+		unblockAll()
+		blockPass()
+	end
+	updateCutStatus()
+end)
+cutStatusLabel = addInfo(playerPage, nil)
+cutStatusLabel.TextColor3 = C.accentLight
+cutStatusLabel.Font = Enum.Font.GothamMedium
+onLang(updateCutStatus)
+updateCutStatus()
+addInfo(playerPage, L("cs_info"))
+
+-- Player: slow drain
 local function ratioFmt(v) return string.format("x%.1f", v) end
 addToggle(playerPage, L("pl_stam"), DRAINS.stamina.on, function(v) DRAINS.stamina.on = v end)
 addSlider(playerPage, L("pl_stamr"), 1.1, 4, 0.1, DRAINS.stamina.ratio, ratioFmt, function(v) DRAINS.stamina.ratio = v end)
@@ -1543,6 +1811,10 @@ function Unload()
 	if not alive then return end
 	alive = false
 	for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+	pcall(function() RunService:UnbindFromRenderStep("PS_CamCapture") end)
+	pcall(function() RunService:UnbindFromRenderStep("PS_CamGuard") end)
+	unblockAll()
+	restoreCutsceneGuis()
 	for _, d in pairs(DRAINS) do detachDrain(d) end
 	pcall(function() folder:Destroy() end)
 	pcall(function() gui:Destroy() end)
@@ -1554,6 +1826,7 @@ env.__BLR_TRAJ = {Unload = Unload}
 
 applyTheme()
 applyStyle()
+rebuildRemotes()
 scan()
 scanDrain("stamina")
 scanDrain("flow")
