@@ -858,7 +858,7 @@ local function parseHints(str, fallback)
 	return list
 end
 
----------------------------------------------------------------- UI helpers
+---------------------------------------------------------------- gui root
 local function guiParent()
 	local ok, h = pcall(function() return gethui and gethui() end)
 	if ok and typeof(h) == "Instance" then return h end
@@ -1207,7 +1207,10 @@ local function runDump()
 	return T("dbg_file")
 end
 
----------------------------------------------------------------- UI helpers (continued)
+---------------------------------------------------------------- user interface (own function: keeps the main chunk under Luau's 200-locals limit)
+local avatarFile = nil
+
+local function buildUI()
 local order = 0
 local function nextOrder() order += 1 return order end
 local function isPress(i)
@@ -1321,7 +1324,7 @@ new("UITextSizeConstraint", {MaxTextSize = 16, MinTextSize = 8}, nameLbl)
 new("Frame", {Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.line, BorderSizePixel = 0, LayoutOrder = nextOrder()}, sidebar)
 
 -- avatar loader (Roblox website thumbnails API -> local file -> image)
-local avatarShown, avatarUrl, avatarFile = false, nil, nil
+local avatarShown, avatarUrl = false, nil
 
 local function httpGetRaw(url)
 	local req = (syn and syn.request) or (http and http.request) or http_request or request
@@ -1997,6 +2000,10 @@ bind(RunService.Heartbeat, function(dt)
 	end
 end)
 
+applyTheme()
+end
+buildUI()
+
 bind(Workspace.DescendantAdded, consider)
 bind(LocalPlayer.CharacterAdded, function()
 	task.delay(2, function()
@@ -2033,7 +2040,6 @@ function Unload()
 end
 env.__BLR_TRAJ = {Unload = Unload}
 
-applyTheme()
 applyStyle()
 rebuildRemotes()
 scan()
