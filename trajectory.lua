@@ -22,7 +22,7 @@ local S = {
 	labelSize = 20, gravityScale = 1, fadeDelay = 3, updateRate = 30,
 	bubble = true, menuKey = Enum.KeyCode.RightShift, menuAlpha = 0.2, btnAlpha = 0.15,
 	highlight = true, hlBright = 0.7, hlColor = 4,
-	noCutscene = false, blockRemotes = true, cutLen = 6,
+	noCutscene = false, blockRemotes = true,
 }
 local COLORS = {
 	{"violet", Color3.fromRGB(176, 120, 255)},
@@ -63,17 +63,16 @@ local STR = {
 		ball_traj = "Ball Trajectory", ball_dist = "Distance (studs)", ball_range = "Prediction range",
 		ball_minspeed = "Min kick speed", ball_hl = "Ball highlight", ball_hlbright = "Highlight brightness",
 		ball_hlcolor = "Highlight color", ball_pick = "Pick ball (tap it)", ball_auto = "Auto-detect ball",
-		u_st = "%d st", u_sts = "%d st/s", u_s = "%.1f s", u_s0 = "%d s", u_hz = "%d Hz",
+		u_st = "%d st", u_sts = "%d st/s", u_s = "%.1f s", u_hz = "%d Hz",
 		st_ball = "Ball", st_search = "searching...", st_auto = "auto", st_manual = "manual",
 		st_tap = "Tap the ball in the world...", st_notball = "That's not the ball - tap closer",
-		cs_main = "No AWK cutscenes", cs_block = "Block cutscene events", cs_len = "Cutscene length",
-		cs_names = "Cutscene names", cs_st_off = "Cutscenes: off", cs_st_idle = "Cutscenes: waiting",
-		cs_st_active = "Cutscene skipped - you can move", cs_st_blocked = "events blocked: %d",
-		cs_st_nosupport = "event blocking is not supported here",
-		cs_info = "Restores your camera and movement when a cutscene starts. If one still plays, add its name (for example awk) to 'Cutscene names'. Works only for locks done on your side; server-side freezes cannot be removed. Keep it off in menus and the lobby.",
+		cs_main = "No AWK cutscenes", cs_block = "Block cutscene events", cs_names = "Cutscene names",
+		cs_st_off = "Cutscenes: off", cs_st_idle = "Cutscenes: waiting", cs_st_active = "Cutscene skipped - you can move",
+		cs_st_blocked = "events blocked: %d%s", cs_st_nosupport = "event blocking is not supported here",
+		cs_info = "Restores your camera and movement when a cutscene takes the camera. If one still plays, add its name (for example awk) to 'Cutscene names'. Server-side freezes cannot be removed. Keep it off in menus and the lobby.",
 		pl_stam = "Slow stamina drain", pl_stamr = "Stamina slowdown", pl_flow = "Slow Flow drain", pl_flowr = "Flow slowdown",
 		pl_stamname = "Stamina name", pl_flowname = "Flow name", pl_ph = "name1, name2", pl_rescan = "Rescan values",
-		pl_info = "Works only if the game keeps stamina/Flow as values (or attributes) the client can change. If it says 'not found', type the real object name above.",
+		pl_info = "Looks for stamina/Flow in values, attributes and (on rescan) script tables. If it says 'not found', type the real object name above, or use 'Copy debug info' in Settings.",
 		dr_stamina = "Stamina", dr_flow = "Flow", dr_scanning = "scanning...",
 		dr_notfound = "not found (try another name below)", dr_more = " +%d more",
 		vis_thick = "Line thickness", vis_opacity = "Line opacity", vis_color = "Line color",
@@ -84,6 +83,7 @@ local STR = {
 		set_key = "Menu key", set_keylisten = "Press a key... (Esc = cancel)", set_bubble = "Floating button",
 		set_fade = "Fade delay", set_rate = "Update rate", set_grav = "Gravity scale",
 		set_horiz = "Horizontal distance only", set_unload = "Unload script",
+		dbg_btn = "Copy debug info", dbg_ok = "Copied %d lines - paste them in the chat", dbg_file = "No clipboard - saved to ProjectSolar_debug.txt",
 		set_info = "Hide the window with the '-' button. Reopen it with the menu key or the floating PS button. Drag the title bar to move the window and the square in its bottom-right corner to resize it.",
 	},
 	ru = {
@@ -91,17 +91,16 @@ local STR = {
 		ball_traj = "Траектория мяча", ball_dist = "Дистанция (studs)", ball_range = "Дальность прогноза",
 		ball_minspeed = "Мин. скорость удара", ball_hl = "Подсветка мяча", ball_hlbright = "Яркость подсветки",
 		ball_hlcolor = "Цвет подсветки", ball_pick = "Выбрать мяч (нажмите на него)", ball_auto = "Автоопределение мяча",
-		u_st = "%d st", u_sts = "%d st/с", u_s = "%.1f с", u_s0 = "%d с", u_hz = "%d Гц",
+		u_st = "%d st", u_sts = "%d st/с", u_s = "%.1f с", u_hz = "%d Гц",
 		st_ball = "Мяч", st_search = "поиск...", st_auto = "авто", st_manual = "вручную",
 		st_tap = "Коснитесь мяча в игре...", st_notball = "Это не мяч — коснитесь точнее",
-		cs_main = "Без AWK-катсцен", cs_block = "Блокировать события катсцен", cs_len = "Длительность катсцены",
-		cs_names = "Имена катсцен", cs_st_off = "Катсцены: выключено", cs_st_idle = "Катсцены: ожидание",
-		cs_st_active = "Катсцена пропущена — вы можете двигаться", cs_st_blocked = "заблокировано событий: %d",
-		cs_st_nosupport = "блокировка событий здесь не поддерживается",
-		cs_info = "Возвращает вам камеру и управление, когда начинается катсцена. Если катсцена всё равно проигрывается, добавьте её имя (например, awk) в «Имена катсцен». Работает только для блокировок на стороне клиента; серверную заморозку убрать нельзя. В меню и лобби лучше держать выключенным.",
+		cs_main = "Без AWK-катсцен", cs_block = "Блокировать события катсцен", cs_names = "Имена катсцен",
+		cs_st_off = "Катсцены: выключено", cs_st_idle = "Катсцены: ожидание", cs_st_active = "Катсцена пропущена — вы можете двигаться",
+		cs_st_blocked = "заблокировано событий: %d%s", cs_st_nosupport = "блокировка событий здесь не поддерживается",
+		cs_info = "Возвращает вам камеру и управление, когда катсцена забирает камеру. Если катсцена всё равно проигрывается, добавьте её имя (например, awk) в «Имена катсцен». Серверную заморозку убрать нельзя. В меню и лобби лучше держать выключенным.",
 		pl_stam = "Медленная трата стамины", pl_stamr = "Замедление стамины", pl_flow = "Медленная трата Flow", pl_flowr = "Замедление Flow",
 		pl_stamname = "Имя стамины", pl_flowname = "Имя Flow", pl_ph = "имя1, имя2", pl_rescan = "Пересканировать значения",
-		pl_info = "Работает, только если игра хранит стамину/Flow как значения (или атрибуты), которые клиент может менять. Если написано «не найдено», введите настоящее имя объекта выше.",
+		pl_info = "Ищет стамину/Flow в значениях, атрибутах и (при пересканировании) таблицах скриптов. Если написано «не найдено», введите настоящее имя объекта выше или нажмите «Скопировать отладочную информацию» в настройках.",
 		dr_stamina = "Стамина", dr_flow = "Flow", dr_scanning = "поиск...",
 		dr_notfound = "не найдено (введите другое имя ниже)", dr_more = " +ещё %d",
 		vis_thick = "Толщина линии", vis_opacity = "Непрозрачность линии", vis_color = "Цвет линии",
@@ -112,6 +111,7 @@ local STR = {
 		set_key = "Клавиша меню", set_keylisten = "Нажмите клавишу... (Esc — отмена)", set_bubble = "Плавающая кнопка",
 		set_fade = "Задержка исчезновения", set_rate = "Частота обновления", set_grav = "Множитель гравитации",
 		set_horiz = "Только горизонтальная дистанция", set_unload = "Выгрузить скрипт",
+		dbg_btn = "Скопировать отладочную информацию", dbg_ok = "Скопировано строк: %d — вставьте их в чат", dbg_file = "Буфера обмена нет — сохранено в ProjectSolar_debug.txt",
 		set_info = "Окно скрывается кнопкой «-». Открыть его снова можно клавишей меню или плавающей кнопкой PS. Перемещайте окно за заголовок, а размер меняйте квадратом в правом нижнем углу.",
 	},
 }
@@ -194,6 +194,10 @@ local hl = new("Highlight", {
 	Name = "H", Enabled = false, DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
 	FillTransparency = 1, OutlineTransparency = 1,
 	FillColor = HL_COLORS[S.hlColor][2], OutlineColor = HL_COLORS[S.hlColor][2]:Lerp(Color3.new(1, 1, 1), 0.35),
+}, folder)
+local glow = new("SphereHandleAdornment", {
+	Name = "G", AlwaysOnTop = true, ZIndex = 1, Transparency = 1, Visible = false, Radius = 1.5,
+	Color3 = HL_COLORS[S.hlColor][2],
 }, folder)
 
 local bb = new("BillboardGui", {
@@ -286,7 +290,7 @@ end
 local function scorePart(p)
 	local sz = p.Size
 	local ms, mn = math.max(sz.X, sz.Y, sz.Z), math.min(sz.X, sz.Y, sz.Z)
-	if ms > 14 or ms < 0.8 then return 0 end
+	if ms > 14 or ms < 0.8 then return 0, false end
 	local lname = p.Name:lower()
 	local pname = p.Parent and p.Parent.Name:lower() or ""
 	local score, named = 0, false
@@ -300,7 +304,7 @@ local function scorePart(p)
 	end
 	if named then
 		for _, h in ipairs(BAD_HINTS) do
-			if lname:find(h, 1, true) or pname:find(h, 1, true) then return 0 end
+			if lname:find(h, 1, true) or pname:find(h, 1, true) then return 0, false end
 		end
 	end
 	local isRound = false
@@ -310,23 +314,28 @@ local function scorePart(p)
 		isRound = true; score += 10
 	end
 	if not named then
-		if not (isRound and not p.Anchored and p.CanCollide and ms >= 1.5 and ms <= 8) then return 0 end
+		if not (isRound and not p.Anchored and p.CanCollide and ms >= 1.5 and ms <= 8) then return 0, false end
 	end
 	if not p.Anchored then score += 15 end
 	if p.CanCollide then score += 5 end
-	return score + 1
+	return score + 1, named
 end
 
 local function consider(inst)
 	if not inst:IsA("BasePart") then return end
 	local cam = Workspace.CurrentCamera
 	if inst:IsDescendantOf(folder) or (cam and inst:IsDescendantOf(cam)) then return end
-	local sc = scorePart(inst)
-	if sc > 0 and not inCharacter(inst) then candidates[inst] = sc end
+	local sc, named = scorePart(inst)
+	if sc <= 0 then return end
+	if inCharacter(inst) then
+		if not named or inst:FindFirstAncestorOfClass("Accessory") then return end
+		sc -= 10
+	end
+	candidates[inst] = sc
 end
 
 local scanning = false
-local nextSelect = 0
+local nextSelect, nextRescan = 0, 0
 local function scan()
 	if scanning then return end
 	scanning = true
@@ -347,6 +356,8 @@ local function reselect()
 	for part, base in pairs(candidates) do
 		if validBall(part) then
 			local sc = base + math.min(part.AssemblyLinearVelocity.Magnitude, 60) * 0.5
+			local tr = part.Transparency
+			if tr >= 0.95 then sc -= 70 elseif tr <= 0.3 then sc += 20 end
 			if part == current then sc += 15 end
 			if sc > bestScore then best, bestScore = part, sc end
 		else
@@ -367,6 +378,10 @@ local function getBall(now)
 		reselect()
 	end
 	if validBall(current) then return current end
+	if now >= nextRescan then
+		nextRescan = now + 4
+		scan()
+	end
 	return nil
 end
 
@@ -376,17 +391,19 @@ local hlBall, hlTarget, hlNext = nil, nil, 0
 
 local function hlTargets()
 	local b = S.hlBright
-	return math.clamp(1 - b * 0.75, 0.05, 0.95), math.clamp(1 - b, 0, 0.9)
+	return math.clamp(1 - b * 0.75, 0.05, 0.95), math.clamp(1 - b, 0, 0.9), math.clamp(1 - b * 0.55, 0.3, 0.95)
 end
 local function applyHighlightColor()
 	local col = HL_COLORS[S.hlColor][2]
 	hl.FillColor = col
 	hl.OutlineColor = col:Lerp(Color3.new(1, 1, 1), 0.35)
+	glow.Color3 = col
 end
 local function applyHighlightBrightness()
 	if hlShown then
-		local f, o = hlTargets()
+		local f, o, g = hlTargets()
 		tween(hl, 0.1, {FillTransparency = f, OutlineTransparency = o})
+		tween(glow, 0.1, {Transparency = g})
 	end
 end
 local function pickHlTarget(ball, now)
@@ -405,17 +422,30 @@ local function updateHighlight(ball, now)
 	if S.highlight and ball then
 		local target = pickHlTarget(ball, now)
 		if hl.Adornee ~= target then hl.Adornee = target end
+		if glow.Adornee ~= ball then
+			glow.Adornee = ball
+			local s = ball.Size
+			glow.Radius = math.max(s.X, s.Y, s.Z) * 0.58
+		end
 		if not hlShown then
 			hlShown = true
 			hl.Enabled = true
-			hl.FillTransparency, hl.OutlineTransparency = 1, 1
-			local f, o = hlTargets()
+			glow.Visible = true
+			hl.FillTransparency, hl.OutlineTransparency, glow.Transparency = 1, 1, 1
+			local f, o, g = hlTargets()
 			tween(hl, 0.3, {FillTransparency = f, OutlineTransparency = o})
+			tween(glow, 0.3, {Transparency = g})
 		end
 	elseif hlShown then
 		hlShown = false
 		tween(hl, 0.25, {FillTransparency = 1, OutlineTransparency = 1})
-		task.delay(0.27, function() if not hlShown then hl.Enabled = false end end)
+		tween(glow, 0.25, {Transparency = 1})
+		task.delay(0.27, function()
+			if not hlShown then
+				hl.Enabled = false
+				glow.Visible = false
+			end
+		end)
 	end
 end
 
@@ -650,8 +680,8 @@ end
 
 ---------------------------------------------------------------- slow drain (stamina / flow)
 local DRAINS = {
-	stamina = {defaults = {"stamina", "stam"}, hints = {"stamina", "stam"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
-	flow = {defaults = {"flow"}, hints = {"flow"}, on = false, ratio = 1.5, targets = {}, conns = {}, scanning = false},
+	stamina = {defaults = {"stamina", "stam", "energy"}, hints = {"stamina", "stam", "energy"}, on = false, ratio = 1.5, targets = {}, fields = {}, conns = {}, scanning = false},
+	flow = {defaults = {"flow"}, hints = {"flow"}, on = false, ratio = 1.5, targets = {}, fields = {}, conns = {}, scanning = false},
 }
 local DRAIN_BAD = {"max", "regen", "rate", "cost", "cooldown", "speed", "mult", "enabled", "bar", "gui", "text", "delay", "limit", "stamp"}
 
@@ -688,6 +718,7 @@ local function considerInstance(inst, d, found, seen)
 end
 
 local function describeTarget(t)
+	if t.kind == "field" then return "table[" .. tostring(t.key) .. "]" end
 	return t.inst:GetFullName() .. (t.kind == "attr" and ("@" .. t.name) or "")
 end
 
@@ -707,10 +738,15 @@ end
 
 local function detachDrain(d)
 	for _, c in ipairs(d.conns) do pcall(function() c:Disconnect() end) end
-	d.conns, d.targets = {}, {}
+	d.conns, d.targets, d.fields = {}, {}, {}
 end
 
 local function attachTarget(d, t)
+	if t.kind == "field" then
+		t.last = t.tbl[t.key]
+		d.fields[#d.fields + 1] = t
+		return
+	end
 	local function get()
 		if t.kind == "value" then return t.inst.Value end
 		return t.inst:GetAttribute(t.name)
@@ -740,7 +776,47 @@ local function attachTarget(d, t)
 	d.conns[#d.conns + 1] = sig:Connect(onChange)
 end
 
-local function scanDrain(kind)
+local function pollFields(d)
+	for _, t in ipairs(d.fields) do
+		local v = t.tbl[t.key]
+		if type(v) == "number" then
+			if d.on and t.last and v < t.last then
+				local nv = t.last - (t.last - v) / d.ratio
+				t.tbl[t.key] = nv
+				t.last = nv
+			else
+				t.last = v
+			end
+		end
+	end
+end
+
+local function deepScan(d, found)
+	if not getgc then return end
+	local ok, gc = pcall(getgc, true)
+	if not ok or type(gc) ~= "table" then return end
+	local added = 0
+	for i = 1, #gc do
+		local t = gc[i]
+		if type(t) == "table" then
+			pcall(function()
+				local c = 0
+				for k, v in next, t do
+					c += 1
+					if c > 60 then break end
+					if type(k) == "string" and type(v) == "number" and nameMatches(k, d.hints) then
+						found[#found + 1] = {kind = "field", tbl = t, key = k}
+						added += 1
+					end
+				end
+			end)
+		end
+		if i % 1500 == 0 then task.wait() end
+		if added >= 40 or not alive then break end
+	end
+end
+
+local function scanDrain(kind, deep)
 	local d = DRAINS[kind]
 	if d.scanning then return end
 	d.scanning = true
@@ -765,6 +841,7 @@ local function scanDrain(kind)
 				if n % 400 == 0 then task.wait() end
 			end
 		end)
+		if deep then pcall(deepScan, d, found) end
 		if alive then
 			for _, t in ipairs(found) do pcall(attachTarget, d, t) end
 			d.targets = found
@@ -802,11 +879,12 @@ local gui = new("ScreenGui", {
 
 ---------------------------------------------------------------- cutscene guard (camera / movement / events)
 local CUT = {
-	hints = {"cutscene", "cinematic"}, remotes = {}, blocked = {}, blockedCount = 0,
-	unsupported = false, activeUntil = 0, active = false,
+	hints = {"cutscene", "cinematic", "awak", "awk"}, remotes = {}, blocked = {}, blockedCount = 0, blockedNames = "",
+	unsupported = false, activeUntil = 0, active = false, takeover = false,
+	yaw = 0, pitch = 0.4, dist = 12, drag = Vector2.zero,
 }
 local cutStatusLabel
-local capCF, capOk, normalFov = nil, false, 70
+local lastNormalCF, normalFov = nil, 70
 local normalMove = {walk = 16, jp = 50, jh = 7.2}
 local controlsObj, nextCtl, nextGui = nil, 0, 0
 local hiddenGuis = {}
@@ -822,7 +900,7 @@ local function updateCutStatus()
 			if CUT.unsupported then
 				txt = txt .. "; " .. T("cs_st_nosupport")
 			else
-				txt = txt .. "; " .. string.format(T("cs_st_blocked"), CUT.blockedCount)
+				txt = txt .. "; " .. string.format(T("cs_st_blocked"), CUT.blockedCount, CUT.blockedNames)
 			end
 		end
 	end
@@ -837,16 +915,22 @@ local function matchesHints(name, hints)
 	return false
 end
 
+local function sigOf(r)
+	if r:IsA("RemoteEvent") then return r.OnClientEvent end
+	return r.Event
+end
+
+local function isEventLike(inst) return inst:IsA("RemoteEvent") or inst:IsA("BindableEvent") end
+
 local function rebuildRemotes()
 	CUT.remotes = {}
-	local ok = pcall(function()
+	pcall(function()
 		for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
-			if inst:IsA("RemoteEvent") and matchesHints(inst.Name, CUT.hints) then
+			if isEventLike(inst) and matchesHints(inst.Name, CUT.hints) then
 				CUT.remotes[#CUT.remotes + 1] = inst
 			end
 		end
 	end)
-	return ok
 end
 
 local function blockPass()
@@ -854,28 +938,29 @@ local function blockPass()
 		CUT.unsupported = true
 		return
 	end
-	local n = 0
+	local n, names = 0, {}
 	for _, r in ipairs(CUT.remotes) do
-		local ok, list = pcall(getconnections, r.OnClientEvent)
+		local ok, list = pcall(function() return getconnections(sigOf(r)) end)
 		if ok and type(list) == "table" then
 			for _, c in ipairs(list) do pcall(function() c:Disable() end) end
 			CUT.blocked[r] = true
 			n += 1
+			if #names < 2 then names[#names + 1] = r.Name end
 		end
 	end
 	CUT.blockedCount = n
+	CUT.blockedNames = (#names > 0) and (" (" .. table.concat(names, ", ") .. ")") or ""
 end
 
 local function unblockAll()
 	if getconnections then
 		for r in pairs(CUT.blocked) do
 			pcall(function()
-				for _, c in ipairs(getconnections(r.OnClientEvent)) do c:Enable() end
+				for _, c in ipairs(getconnections(sigOf(r))) do c:Enable() end
 			end)
 		end
 	end
-	CUT.blocked = {}
-	CUT.blockedCount = 0
+	CUT.blocked, CUT.blockedCount, CUT.blockedNames = {}, 0, ""
 end
 
 local function hideCutsceneGuis(now)
@@ -946,31 +1031,55 @@ local function fixMovement(hum, char, now)
 	end
 end
 
+-- own third-person camera, used while a script holds the camera (cutscene)
+local function emuStart(hrp)
+	local focus = hrp.Position + Vector3.new(0, 2, 0)
+	local ref = lastNormalCF and lastNormalCF.Position or (focus + Vector3.new(0, 6, 12))
+	local off = ref - focus
+	local mag = math.max(off.Magnitude, 0.01)
+	CUT.dist = math.clamp(mag, 6, 30)
+	CUT.yaw = math.atan2(off.X, off.Z)
+	CUT.pitch = math.asin(math.clamp(off.Y / mag, -0.9, 0.9))
+	CUT.drag = Vector2.zero
+end
+
+local function emuStep(cam, hrp)
+	local d = CUT.drag
+	CUT.drag = Vector2.zero
+	CUT.yaw -= d.X * 0.006
+	CUT.pitch = math.clamp(CUT.pitch + d.Y * 0.006, -0.2, 1.3)
+	local focus = hrp.Position + Vector3.new(0, 2, 0)
+	local cp = math.cos(CUT.pitch)
+	local pos = focus + Vector3.new(math.sin(CUT.yaw) * cp, math.sin(CUT.pitch), math.cos(CUT.yaw) * cp) * CUT.dist
+	cam.CFrame = CFrame.lookAt(pos, focus)
+end
+
 local function guardStep()
 	if not alive or not S.noCutscene then return end
 	local cam = Workspace.CurrentCamera
 	local char = LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if not cam or not hum or hum.Health <= 0 then return end
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not cam or not hum or not hrp or hum.Health <= 0 then return end
 	local now = os.clock()
 	local sub = cam.CameraSubject
-	local subBad = sub ~= nil and sub ~= hum and not (sub:IsA("BasePart") and sub:IsDescendantOf(char))
-	local abnormal = cam.CameraType == Enum.CameraType.Scriptable or subBad
-	if abnormal then
-		CUT.activeUntil = math.max(CUT.activeUntil, now + S.cutLen)
-		cam.CameraType = Enum.CameraType.Custom
+	if sub ~= nil and sub ~= hum and not (sub:IsA("BasePart") and sub:IsDescendantOf(char)) then
 		cam.CameraSubject = hum
+		CUT.activeUntil = now + 0.5
+	end
+	if cam.CameraType == Enum.CameraType.Scriptable then
+		if not CUT.takeover then
+			CUT.takeover = true
+			emuStart(hrp)
+		end
+		CUT.activeUntil = now + 0.5
+		emuStep(cam, hrp)
 		cam.FieldOfView = normalFov
+	else
+		CUT.takeover = false
 	end
 	local inWindow = now < CUT.activeUntil
 	if inWindow then
-		if not abnormal and capOk then
-			local cf = cam.CFrame
-			if (cf.Position - capCF.Position).Magnitude > 0.5 or cf.LookVector:Dot(capCF.LookVector) < 0.999 then
-				cam.CFrame = capCF
-			end
-			if math.abs(cam.FieldOfView - normalFov) > 0.1 then cam.FieldOfView = normalFov end
-		end
 		fixMovement(hum, char, now)
 		hideCutsceneGuis(now)
 	else
@@ -986,19 +1095,28 @@ end
 pcall(function() RunService:UnbindFromRenderStep("PS_CamCapture") end)
 pcall(function() RunService:UnbindFromRenderStep("PS_CamGuard") end)
 RunService:BindToRenderStep("PS_CamCapture", Enum.RenderPriority.Camera.Value + 1, function()
-	capOk = false
 	if not S.noCutscene then return end
 	local cam = Workspace.CurrentCamera
-	if cam and cam.CameraType == Enum.CameraType.Custom then
-		capCF, capOk = cam.CFrame, true
-	end
+	if cam and cam.CameraType == Enum.CameraType.Custom then lastNormalCF = cam.CFrame end
 end)
 RunService:BindToRenderStep("PS_CamGuard", Enum.RenderPriority.Last.Value, function()
 	pcall(guardStep)
 end)
 
+bind(UserInputService.InputChanged, function(input, gpe)
+	if not CUT.takeover then return end
+	local t = input.UserInputType
+	if t == Enum.UserInputType.MouseMovement then
+		if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) or UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+			CUT.drag += Vector2.new(input.Delta.X, input.Delta.Y)
+		end
+	elseif t == Enum.UserInputType.Touch and not gpe then
+		CUT.drag += Vector2.new(input.Delta.X, input.Delta.Y)
+	end
+end)
+
 bind(ReplicatedStorage.DescendantAdded, function(inst)
-	if inst:IsA("RemoteEvent") and matchesHints(inst.Name, CUT.hints) then
+	if isEventLike(inst) and matchesHints(inst.Name, CUT.hints) then
 		CUT.remotes[#CUT.remotes + 1] = inst
 	end
 end)
@@ -1011,6 +1129,83 @@ task.spawn(function()
 		end
 	end
 end)
+
+---------------------------------------------------------------- debug dump
+local DUMP_KEYS = {"stam", "flow", "awak", "awk", "energy", "sprint", "meter", "cutscene", "freeze", "stun", "ball"}
+
+local function pathOf(i)
+	local ok, p = pcall(function() return i:GetFullName() end)
+	return ok and p or tostring(i)
+end
+
+local function buildDump()
+	local out = {}
+	local function add(s) out[#out + 1] = s end
+	add("== Project Solar debug == PlaceId " .. game.PlaceId .. " | " .. os.date("%Y-%m-%d %H:%M"))
+	add(string.format("exec: getgc=%s getconnections=%s hookmeta=%s setclipboard=%s writefile=%s request=%s",
+		tostring(getgc ~= nil), tostring(getconnections ~= nil), tostring(hookmetamethod ~= nil),
+		tostring(setclipboard ~= nil), tostring(writefile ~= nil), tostring((request or http_request) ~= nil)))
+	local cam = Workspace.CurrentCamera
+	if cam then add("camera: " .. tostring(cam.CameraType) .. " subject=" .. (cam.CameraSubject and cam.CameraSubject.ClassName or "nil")) end
+	add("-- ball")
+	if current then
+		add(string.format("current: %s [%s] size=%s transp=%.2f anchored=%s inChar=%s", pathOf(current), current.ClassName,
+			tostring(current.Size), current.Transparency, tostring(current.Anchored), tostring(inCharacter(current))))
+	else
+		add("current: none")
+	end
+	local list = {}
+	for p, sc in pairs(candidates) do
+		if validBall(p) then list[#list + 1] = {p, sc} end
+	end
+	table.sort(list, function(a, b) return a[2] > b[2] end)
+	for i = 1, math.min(8, #list) do
+		add(string.format("cand %d: %s (%d) transp=%.2f", i, pathOf(list[i][1]), list[i][2], list[i][1].Transparency))
+	end
+	add("-- values / attributes (player, character)")
+	local n = 0
+	local function dumpInst(inst)
+		if n >= 150 then return end
+		if inst:IsA("ValueBase") and matchesHints(inst.Name, DUMP_KEYS) then
+			local ok, v = pcall(function() return inst.Value end)
+			if ok then n += 1; add(pathOf(inst) .. " = " .. tostring(v)) end
+		end
+		for k, v in pairs(inst:GetAttributes()) do
+			if n < 150 and matchesHints(k, DUMP_KEYS) then n += 1; add(pathOf(inst) .. "@" .. k .. " = " .. tostring(v)) end
+		end
+	end
+	for _, root in ipairs({LocalPlayer, LocalPlayer.Character}) do
+		dumpInst(root)
+		for _, d in ipairs(root:GetDescendants()) do dumpInst(d) end
+	end
+	add("-- events in ReplicatedStorage")
+	local m = 0
+	for _, inst in ipairs(ReplicatedStorage:GetDescendants()) do
+		if m < 220 and (inst:IsA("RemoteEvent") or inst:IsA("RemoteFunction") or inst:IsA("BindableEvent")) then
+			m += 1
+			add((matchesHints(inst.Name, DUMP_KEYS) and "* " or "  ") .. inst.ClassName .. " " .. pathOf(inst))
+		end
+	end
+	add("-- PlayerGui")
+	local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if pg then
+		for i, g in ipairs(pg:GetChildren()) do
+			if i <= 60 then add(g.ClassName .. " " .. g.Name .. (g:IsA("ScreenGui") and (" enabled=" .. tostring(g.Enabled)) or "")) end
+		end
+	end
+	return out
+end
+
+local function runDump()
+	local ok, lines = pcall(buildDump)
+	if not ok then return "error: " .. tostring(lines) end
+	local text = table.concat(lines, "\n")
+	local copied = false
+	if setclipboard then copied = pcall(setclipboard, text) end
+	if writefile then pcall(writefile, "ProjectSolar_debug.txt", text) end
+	if copied then return string.format(T("dbg_ok"), #lines) end
+	return T("dbg_file")
+end
 
 ---------------------------------------------------------------- UI helpers (continued)
 local order = 0
@@ -1591,6 +1786,40 @@ addButton(ballPage, L("ball_auto"), function()
 	updateStatus()
 end)
 
+-- Player: slow drain
+local function ratioFmt(v) return string.format("x%.1f", v) end
+addToggle(playerPage, L("pl_stam"), DRAINS.stamina.on, function(v)
+	DRAINS.stamina.on = v
+	if v and #DRAINS.stamina.targets == 0 then scanDrain("stamina", true) end
+end)
+addSlider(playerPage, L("pl_stamr"), 1.1, 4, 0.1, DRAINS.stamina.ratio, ratioFmt, function(v) DRAINS.stamina.ratio = v end)
+addToggle(playerPage, L("pl_flow"), DRAINS.flow.on, function(v)
+	DRAINS.flow.on = v
+	if v and #DRAINS.flow.targets == 0 then scanDrain("flow", true) end
+end)
+addSlider(playerPage, L("pl_flowr"), 1.1, 4, 0.1, DRAINS.flow.ratio, ratioFmt, function(v) DRAINS.flow.ratio = v end)
+for _, kind in ipairs({"stamina", "flow"}) do
+	local d = DRAINS[kind]
+	d.statusLabel = addInfo(playerPage, nil)
+	d.statusLabel.TextColor3 = C.accentLight
+	d.statusLabel.Font = Enum.Font.GothamMedium
+	onLang(function() updateDrainStatus(kind) end)
+	updateDrainStatus(kind)
+end
+addTextInput(playerPage, L("pl_stamname"), "stamina", L("pl_ph"), function(txt)
+	DRAINS.stamina.hints = parseHints(txt, DRAINS.stamina.defaults)
+	scanDrain("stamina", true)
+end)
+addTextInput(playerPage, L("pl_flowname"), "flow", L("pl_ph"), function(txt)
+	DRAINS.flow.hints = parseHints(txt, DRAINS.flow.defaults)
+	scanDrain("flow", true)
+end)
+addButton(playerPage, L("pl_rescan"), function()
+	scanDrain("stamina", true)
+	scanDrain("flow", true)
+end)
+addInfo(playerPage, L("pl_info"))
+
 -- Player: cutscenes
 addToggle(playerPage, L("cs_main"), S.noCutscene, function(v)
 	S.noCutscene = v
@@ -1602,8 +1831,7 @@ addToggle(playerPage, L("cs_main"), S.noCutscene, function(v)
 	else
 		unblockAll()
 		restoreCutsceneGuis()
-		CUT.activeUntil = 0
-		CUT.active = false
+		CUT.activeUntil, CUT.active, CUT.takeover = 0, false, false
 	end
 	updateCutStatus()
 end)
@@ -1617,9 +1845,8 @@ addToggle(playerPage, L("cs_block"), S.blockRemotes, function(v)
 	end
 	updateCutStatus()
 end)
-addSlider(playerPage, L("cs_len"), 2, 15, 1, S.cutLen, stFmt("u_s0"), function(v) S.cutLen = v end)
-addTextInput(playerPage, L("cs_names"), "cutscene, cinematic", L("pl_ph"), function(txt)
-	CUT.hints = parseHints(txt, {"cutscene", "cinematic"})
+addTextInput(playerPage, L("cs_names"), "cutscene, cinematic, awak, awk", L("pl_ph"), function(txt)
+	CUT.hints = parseHints(txt, {"cutscene", "cinematic", "awak", "awk"})
 	rebuildRemotes()
 	if S.noCutscene and S.blockRemotes then
 		unblockAll()
@@ -1633,34 +1860,6 @@ cutStatusLabel.Font = Enum.Font.GothamMedium
 onLang(updateCutStatus)
 updateCutStatus()
 addInfo(playerPage, L("cs_info"))
-
--- Player: slow drain
-local function ratioFmt(v) return string.format("x%.1f", v) end
-addToggle(playerPage, L("pl_stam"), DRAINS.stamina.on, function(v) DRAINS.stamina.on = v end)
-addSlider(playerPage, L("pl_stamr"), 1.1, 4, 0.1, DRAINS.stamina.ratio, ratioFmt, function(v) DRAINS.stamina.ratio = v end)
-addToggle(playerPage, L("pl_flow"), DRAINS.flow.on, function(v) DRAINS.flow.on = v end)
-addSlider(playerPage, L("pl_flowr"), 1.1, 4, 0.1, DRAINS.flow.ratio, ratioFmt, function(v) DRAINS.flow.ratio = v end)
-for _, kind in ipairs({"stamina", "flow"}) do
-	local d = DRAINS[kind]
-	d.statusLabel = addInfo(playerPage, nil)
-	d.statusLabel.TextColor3 = C.accentLight
-	d.statusLabel.Font = Enum.Font.GothamMedium
-	onLang(function() updateDrainStatus(kind) end)
-	updateDrainStatus(kind)
-end
-addTextInput(playerPage, L("pl_stamname"), "stamina", L("pl_ph"), function(txt)
-	DRAINS.stamina.hints = parseHints(txt, DRAINS.stamina.defaults)
-	scanDrain("stamina")
-end)
-addTextInput(playerPage, L("pl_flowname"), "flow", L("pl_ph"), function(txt)
-	DRAINS.flow.hints = parseHints(txt, DRAINS.flow.defaults)
-	scanDrain("flow")
-end)
-addButton(playerPage, L("pl_rescan"), function()
-	scanDrain("stamina")
-	scanDrain("flow")
-end)
-addInfo(playerPage, L("pl_info"))
 
 -- Visuals
 addSlider(visPage, L("vis_thick"), 0.1, 1.5, 0.05, S.thickness, function(v) return string.format("%.2f", v) end, function(v) S.thickness = v; applyStyle() end)
@@ -1697,6 +1896,13 @@ addToggle(setPage, L("set_horiz"), S.horizontal, function(v)
 	S.horizontal = v
 	if shot and shot.state == "landed" and S.distance and labelShown then showLabel(distText(shot)) end
 end)
+local dbgLabel
+addButton(setPage, L("dbg_btn"), function()
+	dbgLabel.Text = runDump()
+end)
+dbgLabel = addInfo(setPage, nil)
+dbgLabel.TextColor3 = C.accentLight
+dbgLabel.Font = Enum.Font.GothamMedium
 addInfo(setPage, L("set_info"))
 addButton(setPage, L("set_unload"), function() Unload() end, C.danger)
 
@@ -1772,6 +1978,9 @@ bind(RunService.Heartbeat, function(dt)
 			errCount += 1
 			if errCount <= 3 then warn("[Project Solar] " .. tostring(err)) end
 		end
+	end
+	for _, d in pairs(DRAINS) do
+		if #d.fields > 0 then pcall(pollFields, d) end
 	end
 	if shot and shot.state == "landed" and os.clock() - shot.doneAt >= S.fadeDelay then
 		cancelShot(false)
